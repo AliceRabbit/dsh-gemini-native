@@ -1,0 +1,4 @@
+- insert:
+    - id: llm-gemini-native
+      name: '@local/dsh-gemini-native'
+      config: {}

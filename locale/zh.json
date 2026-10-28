@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Gemini 原生端点",
+    "description": "启用即添加独立 Gemini 提供商，支持 Gemini 4、原生流式回复、图片、工具调用及可配置的原生额度重试。"
+  }
+}

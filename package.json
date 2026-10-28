@@ -1,0 +1,34 @@
+{
+  "name": "@local/dsh-gemini-native",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A native Gemini provider for DeepSeek Harness, powered by Google's official Gen AI SDK.",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/AliceRabbit/dsh-gemini-native.git" },
+  "homepage": "https://github.com/AliceRabbit/dsh-gemini-native#readme",
+  "bugs": { "url": "https://github.com/AliceRabbit/dsh-gemini-native/issues" },
+  "engines": { "node": ">=20.3.0" },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": ["index.js", "gemini.js", "quota-retry.js", "client.js", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md", "README.en.md", "LICENSE"],
+  "scripts": { "test": "node --test" },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": { "platform": "web", "immediately": true, "inject": ["@deepseek-ai/dsh-client-ui-settings-models"] }
+  },
+  "dependencies": { "@google/genai": "2.31.0" },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.5",
+    "@deepseek-ai/cosmokit": "1.8.6"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-launch-environment": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-llm": "0.2.1-rc.3",
+    "@deepseek-ai/schemastery": "3.18.5"
+  }
+}

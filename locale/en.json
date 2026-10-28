@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Gemini Native",
+    "description": "Adds a ready-to-configure Gemini provider with Gemini 4, native streaming, images, tool calls and configurable native quota retries."
+  }
+}

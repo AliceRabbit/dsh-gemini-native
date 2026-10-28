@@ -1,0 +1,10 @@
+node_modules/
+*.tgz
+.env
+.env.*
+!.env.example
+*.log
+.verification/
+tests/.runtime-*.mjs
+.DS_Store
+Thumbs.db
