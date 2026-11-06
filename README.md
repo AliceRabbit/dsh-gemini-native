@@ -15,7 +15,7 @@
 
 ## 安装
 
-适用于 **DeepSeek Harness 0.2.1-rc.3**。
+适用于 **DeepSeek Harness 0.2.x**，最低版本为 **0.2.1-rc.3**。
 
 1. 在 [Releases](https://github.com/AliceRabbit/dsh-gemini-native/releases/latest) 下载 `.tgz` 安装包。
 2. 在 Harness 的插件页面安装该文件，并启用插件。

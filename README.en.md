@@ -15,7 +15,7 @@ An independent Gemini provider for DeepSeek Harness, powered by Google's officia
 
 ## Installation
 
-Compatible with **DeepSeek Harness 0.2.1-rc.3**.
+Compatible with **DeepSeek Harness 0.2.x**, starting from **0.2.1-rc.3**.
 
 1. Download the `.tgz` package from [Releases](https://github.com/AliceRabbit/dsh-gemini-native/releases/latest).
 2. Install the file from the Harness plugin page and enable the plugin.

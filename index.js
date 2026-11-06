@@ -42,7 +42,7 @@ export function apply(ctx, config) {
   let registeredPolicy = JSON.stringify(adapter.providerRetryPolicy(PROVIDER));
   ctx.llm.registerConfigurableProviders([{
     provider: PROVIDER, displayName: 'Gemini', settingsNs, settingsPath: [],
-    defaultBaseURL: BASE_URL, nativeAuth: { env: ['GEMINI_API_KEY'] },
+    defaultBaseURL: BASE_URL, nativeAuth: { env: ['GEMINI_API_KEY'], oauth: false },
   }]);
   ctx.llm.registerModelDiscovery(settingsNs, (request, signal) => adapter.discover(request, signal));
   ctx.inject(['settings'], child => child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)));

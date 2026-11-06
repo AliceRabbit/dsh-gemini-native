@@ -10,7 +10,7 @@ window.__ModuleLoader__.load({
         show: '显示密钥', hide: '隐藏密钥', authHelp: '认证说明',
         authHint: '优先使用已保存的凭据，也可设置环境变量 {ref}。留空保留现有凭据。',
         missingKey: '未检测到环境变量。请填写 API 密钥，或设置环境变量 {ref}。',
-        customized: '自定义设置', endpoint: 'API 地址', models: '模型目录',
+        customized: '自定义设置', geminiSettings: '编辑 Gemini 设置', endpoint: 'API 地址', models: '模型目录',
         inherited: '正在使用适配器默认模型', customizedModels: '已自定义模型目录', reset: '恢复默认模型',
         modelId: '模型 ID', modelName: '显示名称', context: '上下文窗口', output: '最大输出 token 数',
         inputTypes: '输入类型', text: '文本', image: '图片', advanced: '模型选项',
@@ -38,7 +38,7 @@ window.__ModuleLoader__.load({
         show: 'Show key', hide: 'Hide key', authHelp: 'Authentication help',
         authHint: 'Saved credentials take priority. You can also set {ref}. Leave blank to keep existing credentials.',
         missingKey: 'No environment variable detected. Enter an API key or set {ref}.',
-        customized: 'Customized settings', endpoint: 'API endpoint', models: 'Model catalog',
+        customized: 'Customized settings', geminiSettings: 'Edit Gemini settings', endpoint: 'API endpoint', models: 'Model catalog',
         inherited: 'Using adapter default models', customizedModels: 'Customized model catalog', reset: 'Restore default models',
         modelId: 'Model ID', modelName: 'Display name', context: 'Context window', output: 'Max output tokens',
         inputTypes: 'Input types', text: 'Text', image: 'Image', advanced: 'Model options',
@@ -439,12 +439,17 @@ window.__ModuleLoader__.load({
     function Card({ ctx, t, provider, keyConfigured }) {
       const [open, setOpen] = React.useState(false);
       const [saved, setSaved] = React.useState(false);
+      const [nativeEdit, setNativeEdit] = React.useState(false);
       const mount = React.useRef(null);
       React.useEffect(() => {
         // Harness 0.2.1 does not expose its Edit action through the card slot.
-        const row = mount.current.closest('li');
-        const section = row.parentElement.parentElement;
-        const edit = row.querySelector(':scope > div > span > button');
+        const row = mount.current?.closest('li');
+        const section = row?.parentElement?.parentElement;
+        const edit = row?.querySelector(':scope > div > span > button');
+        // First-run cards and draft cards have no native Edit action.
+        // Keep the slot-owned entry usable instead of relying on that DOM shape.
+        if (!row || !section || !edit) return;
+        setNativeEdit(true);
         const onClick = event => {
           if (edit?.contains(event.target)) {
             event.stopPropagation();
@@ -460,8 +465,9 @@ window.__ModuleLoader__.load({
         section.addEventListener('click', onClick, true);
         return () => section.removeEventListener('click', onClick, true);
       }, []);
-      return h('div', { className: 'gemini-native', ref: mount, hidden: !open && !saved },
+      return h('div', { className: 'gemini-native', ref: mount, hidden: nativeEdit && !open && !saved },
         h('style', null, css),
+        !nativeEdit && !open ? h('button', { type: 'button', className: 'gn-secondaryButton', onClick: () => { setOpen(true); setSaved(false); } }, t('geminiSettings')) : null,
         open ? h(Editor, { ctx, t, provider, keyConfigured, onClose(changed) { setOpen(false); setSaved(changed); } }) : null,
         saved ? h('p', { className: 'gn-savedNotice', role: 'status' }, t('saved')) : null);
     }

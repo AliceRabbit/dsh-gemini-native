@@ -50,9 +50,10 @@ function fakeReact() {
       this.cursor = 0;
       this.tree = this.component(this.props);
       active = undefined;
-      for (const effect of this.effects.splice(0)) if (runEffects) effect();
+      if (runEffects) this.flushEffects();
       return this.tree;
     }
+    flushEffects() { return this.effects.splice(0).map(effect => effect()); }
     async settle() { for (let i = 0; i < 4; i++) { await Promise.resolve(); this.render(); } }
   }
   return { React, Renderer };
@@ -128,8 +129,59 @@ async function fixture({ quotaRetry, writable = true, locale = 'en', user = {}, 
     editor.render();
   };
   const submit = () => find(node => node.type === 'form').props.onSubmit({ preventDefault() {} });
-  return { editor, calls, control, button, change, submit, find, t, dictionaries };
+  return { card, editor, calls, control, button, change, submit, find, t, dictionaries };
 }
+
+async function mountedCard(mount) {
+  const f = await fixture();
+  f.card.setters[0](false);
+  f.card.render(false);
+  f.card.tree.props.ref.current = mount;
+  const cleanups = f.card.flushEffects();
+  f.card.render();
+  return { ...f, cleanups };
+}
+
+for (const [posture, mount] of [
+  ['not-yet-mounted', null],
+  ['add-provider draft without a list row', { closest: () => null }],
+  ['first-run setup without a native Edit button', { closest: () => ({ parentElement: { parentElement: {} }, querySelector: () => null }) }],
+]) test(`Card keeps a usable settings entry for ${posture}`, async () => {
+  const f = await mountedCard(mount);
+  assert.equal(f.card.tree.props.hidden, false);
+  const open = nodes(f.card.tree).find(node => node.type === 'button' && text(node) === f.t('geminiSettings'));
+  assert.ok(open, 'slot-owned settings entry must stay visible');
+  open.props.onClick();
+  f.card.render();
+  const editor = nodes(f.card.tree).find(node => typeof node.type === 'function' && node.type.name === 'Editor');
+  assert.ok(editor, 'settings entry opens the existing editor');
+  editor.props.onClose(false);
+  f.card.render();
+  assert.ok(nodes(f.card.tree).some(node => node.type === 'button' && text(node) === f.t('geminiSettings')));
+  assert.deepEqual(f.calls.mutations, []);
+});
+
+test('saved provider cards retain native Edit behavior and release their click listener', async () => {
+  const listeners = new Map();
+  const target = {};
+  const edit = { contains: node => node === target };
+  const section = {
+    addEventListener: (name, listener) => listeners.set(name, listener),
+    removeEventListener: (name, listener) => { assert.strictEqual(listeners.get(name), listener); listeners.delete(name); },
+    querySelectorAll: () => [],
+  };
+  const row = { parentElement: { parentElement: section }, querySelector: () => edit };
+  const f = await mountedCard({ closest: () => row });
+  assert.equal(f.card.tree.props.hidden, true);
+  assert.ok(!nodes(f.card.tree).some(node => node.type === 'button' && text(node) === f.t('geminiSettings')));
+  let stopped = false;
+  listeners.get('click')({ target, stopPropagation() { stopped = true; } });
+  f.card.render();
+  assert.equal(stopped, true);
+  assert.ok(nodes(f.card.tree).some(node => typeof node.type === 'function' && node.type.name === 'Editor'));
+  for (const cleanup of f.cleanups) if (cleanup) cleanup();
+  assert.equal(listeners.size, 0);
+});
 
 test('default retry controls live only in existing custom settings and do not materialize defaults', async () => {
   const f = await fixture();

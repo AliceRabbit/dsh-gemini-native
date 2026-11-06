@@ -12,19 +12,24 @@ import { DEFAULT_QUOTA_RETRY, resolveQuotaRetryPolicy } from '../quota-retry.js'
 const nativeRetry = process.env.DSH_RETRY_TEST_MODULE
   ? await import(process.env.DSH_RETRY_TEST_MODULE) : undefined;
 
-function nativeHarness(policy) {
+async function nativeHarness(policy) {
   const events = [];
   let projection, recover, state, dispose;
   const ctx = {
+    fiber: { uid: 'test-retry-fiber' },
     sessionProjections: {
-      register(value) { projection = value; state = value.init(); },
+      register(value) {
+        projection = value;
+        state = value.init();
+        return Promise.resolve({ stateOf: () => state });
+      },
       stateOf() { return state; },
     },
     on(name, listener) { assert.equal(name, 'agent/request-error'); recover = listener; return () => {}; },
     effect(setup) { dispose = setup(); },
     logger: { warn() {} },
   };
-  nativeRetry.apply(ctx, {}, { random: () => 0.5 });
+  await nativeRetry.apply(ctx, {}, { random: () => 0.5 });
   const session = { append(type, data) { const event = { type, data }; events.push(event); state = projection.apply(state, event); } };
   const control = new AbortController();
   const payload = { agent: { session }, turn: 'test-turn', step: 'test-step', provider: PROVIDER,
@@ -35,10 +40,11 @@ function nativeHarness(policy) {
 const integration = { skip: !nativeRetry };
 test('official executor logs five finite retries with shared budget and exponential backoff', integration, async t => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  const h = nativeHarness(resolveQuotaRetryPolicy());
+  const h = await nativeHarness(resolveQuotaRetryPolicy());
   try {
     for (const [index, delay] of [5000, 10000, 20000, 30000, 30000].entries()) {
       const pending = h.run(index === 1 ? { failure: { code: 'TRANSPORT', message: 'test' } } : {});
+      await Promise.resolve();
       assert.equal(h.events.at(-1).type, 'llm/retry');
       assert.equal(h.events.at(-1).data.delayMs, delay);
       assert.equal(h.events.at(-1).data.retry, index + 1);
@@ -51,6 +57,7 @@ test('official executor logs five finite retries with shared budget and exponent
     assert.equal(new Set(h.events.map(event => event.data.retryId)).size, 1);
     h.session.append('step/start', {});
     const reset = h.run();
+    await Promise.resolve();
     assert.equal(h.events.at(-1).data.retry, 1);
     t.mock.timers.tick(5000);
     assert.deepEqual(await reset, { kind: 'retry' });
@@ -59,9 +66,10 @@ test('official executor logs five finite retries with shared budget and exponent
 
 test('official backoff is cancellable and never starts an aborted retry', integration, async t => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  const h = nativeHarness(resolveQuotaRetryPolicy());
+  const h = await nativeHarness(resolveQuotaRetryPolicy());
   try {
     const pending = h.run();
+    await Promise.resolve();
     h.control.abort();
     assert.equal(await pending, undefined);
     t.mock.timers.tick(300000);
@@ -70,8 +78,8 @@ test('official backoff is cancellable and never starts an aborted retry', integr
 });
 
 test('official executor delegates disabled QUOTA, excluded errors, and oversized Retry-After', integration, async () => {
-  const off = nativeHarness(resolveQuotaRetryPolicy({ enabled: false }));
-  const on = nativeHarness(resolveQuotaRetryPolicy());
+  const off = await nativeHarness(resolveQuotaRetryPolicy({ enabled: false }));
+  const on = await nativeHarness(resolveQuotaRetryPolicy());
   try {
     assert.deepEqual(await off.run(), { kind: 'downstream' });
     for (const code of ['AUTH', 'ACCOUNT_QUOTA', 'ABORTED', 'INVALID_REQUEST']) {
