@@ -35,6 +35,32 @@ Retries are managed by Harness. They do not send another “continue” message 
 
 > This plugin supports image input, not image, audio, or video generation. Model availability and capabilities depend on your API provider.
 
+## Optional routing shield
+
+The bundle includes **Gemini routing shield**, **off by default**. Expand the bundle's component list in Plugin Manager and enable it independently; leave the Gemini provider enabled. Disable the same component to turn protection off, without restarting DSH or changing provider, credential, or model settings.
+
+With the component enabled, adjust **Shield strength** under **Settings → Model providers → Gemini → Customized settings**, then save or cancel with the rest of the editor. Disabling the component removes the control even in an open editor and discards its unsaved draft. The saved mode returns when re-enabled; other Gemini drafts stay intact.
+
+You can also set `mode` through Cordis configuration. For example, merge this into the existing configuration overrides:
+
+```yaml
+- id: gemini-routing-shield
+  config:
+    mode: probe-only
+```
+
+Available values:
+
+- **Balanced** (`hybrid`, default): the original ~5,000-character barrier and four identity probes.
+- **Light** (`probe-only`): a ~220-character barrier and one probe, with lower input cost.
+- **Strong** (`fortress`): a ~6,400-character barrier and four probes, with higher input cost.
+
+These are barrier characters, not tokens; probes and the companion instruction are additional. Protection uses extra input tokens and may increase cost. Choose a mode to suit your usage.
+
+The strategy comes from `fxxk-router 1.0.0`: random barriers, identity probes, and an instruction to ignore those probes. It is adapted directly to Gemini `contents/parts`, including tool continuations. No proxy, CC environment interception, output cleanup, extra retries, or monitoring UI. Tool results, thought signatures, and truthful identity instructions remain intact.
+
+Changes take effect at the **next prompt assembly**; already assembled steps (even if still waiting to start) and their retries keep the recorded snapshot. DSH prompt assembly records the complete shield, and the adapter moves that recorded text to the request tail. Shields do not accumulate in model history; disabling removes both the shield and its companion instruction from new steps. Session logs retain the full shield for each step so requests remain reconstructable.
+
 ## License
 
 [MIT](./LICENSE)

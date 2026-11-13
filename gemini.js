@@ -6,6 +6,7 @@ import {
   requestImageHandleText, resolveImageAttachmentAccess,
 } from '@deepseek-ai/dsh-llm';
 import { resolveQuotaRetryPolicy } from './quota-retry.js';
+import { extractShield } from './routing-shield/payload.js';
 
 export const PROVIDER = 'gemini-native';
 export const NAMESPACE = 'llm-gemini-native';
@@ -88,6 +89,7 @@ function restoreParts(block, replay) {
 export async function toRequest(options, config, services = {}) {
   const contents = [];
   const system = options.system ? [options.system] : [];
+  let shield;
   const calls = new Map();
   const images = new Map();
   const append = (role, parts) => {
@@ -117,7 +119,13 @@ export async function toRequest(options, config, services = {}) {
   }
   for (const message of options.messages) {
     if (message.role === 'system' || message.role === 'developer') {
-      system.push(...message.content.filter(block => block.type === 'text').map(block => block.text));
+      for (const block of message.content) {
+        if (block.type !== 'text') continue;
+        const section = message.role === 'system' && message.source?.kind === 'system-prompt'
+          ? extractShield(block.text) : { text: block.text };
+        system.push(section.text);
+        if (section.shield) shield = section.shield;
+      }
     } else if (message.role === 'assistant') {
       const state = message.source?.replayState;
       const replay = state?.response?.kind === 'gemini-native' && state.response.version === 1 ? state.blocks : undefined;
@@ -140,6 +148,8 @@ export async function toRequest(options, config, services = {}) {
       } }]);
     } else append('user', await userParts(message.content));
   }
+
+  if (shield) append('user', [{ text: shield }]);
 
   const model = modelInfo(options.provider, options.model, config);
   const entry = config.models.find(entry => entry.id === options.model) ?? {};
@@ -186,8 +196,11 @@ export async function* toChunks(stream, options) {
   let current = -1;
   let usage;
   let finish;
+  let modelVersion;
   let hasTools = false;
   for await (const chunk of stream) {
+    // Preserve the server's identity even on metadata-only stream chunks.
+    if (typeof chunk.modelVersion === 'string' && chunk.modelVersion.trim()) modelVersion = chunk.modelVersion;
     if (chunk.usageMetadata) usage = chunk.usageMetadata;
     if (chunk.promptFeedback?.blockReason) throw new LlmError(`Gemini blocked the prompt: ${chunk.promptFeedback.blockReason}`, 'CONTENT_FILTER');
     const candidate = chunk.candidates?.[0];
@@ -244,7 +257,9 @@ export async function* toChunks(stream, options) {
     code: finish === 'MALFORMED_FUNCTION_CALL' ? 'INVALID_RESPONSE' : 'CONTENT_FILTER',
     message: `Gemini stopped: ${finish}`,
   } };
-  yield { type: 'finish', reason, replayState: { response: { kind: 'gemini-native', version: 1 }, blocks: replay } };
+  yield { type: 'finish', reason, replayState: { response: {
+    kind: 'gemini-native', version: 1, ...(modelVersion ? { modelVersion } : {}),
+  }, blocks: replay } };
 }
 
 function sdkError(error, signal) {

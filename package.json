@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-gemini-native",
-  "version": "1.1.2",
+  "version": "1.2.1",
   "private": true,
   "type": "module",
   "description": "A native Gemini provider for DeepSeek Harness, powered by Google's official Gen AI SDK.",
@@ -12,10 +12,13 @@
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
+    "./routing-shield": "./routing-shield/index.js",
+    "./routing-shield/locale/*.json": "./routing-shield/locale/*.json",
+    "./routing-shield/icon": "./routing-shield/icon.svg",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
   },
-  "files": ["index.js", "gemini.js", "quota-retry.js", "client.js", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md", "README.en.md", "LICENSE"],
+  "files": ["index.js", "gemini.js", "quota-retry.js", "routing-shield", "client.js", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md", "README.en.md", "LICENSE"],
   "scripts": { "test": "node --test" },
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },

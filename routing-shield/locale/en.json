@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Gemini routing shield",
+    "description": "Adds a tail barrier and identity probes to native Gemini requests, including tool continuations. No proxy. Off by default; disabling restores normal requests from the next prompt assembly. Three strength levels, adjustable in Gemini customized settings."
+  }
+}

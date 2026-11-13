@@ -33,14 +33,27 @@ function fakeReact() {
       if (!previous || deps.some((value, index) => !Object.is(value, previous.deps[index]))) owner.hooks[i] = { deps, value: compute() };
       return owner.hooks[i].value;
     },
+    useCallback(callback, deps) { return React.useMemo(() => callback, deps); },
     useEffect(effect, deps) {
       const owner = active;
       const i = owner.cursor++;
       const previous = owner.hooks[i];
-      if (!previous || deps.some((value, index) => !Object.is(value, previous[index]))) {
-        owner.hooks[i] = deps;
-        owner.effects.push(effect);
+      if (!previous || deps.some((value, index) => !Object.is(value, previous.deps[index]))) {
+        const hook = { deps };
+        owner.hooks[i] = hook;
+        owner.effects.push(() => {
+          previous?.cleanup?.();
+          hook.cleanup = effect();
+          return hook.cleanup;
+        });
       }
+    },
+    useSyncExternalStore(subscribe, getSnapshot) {
+      const [, notify] = React.useState(0);
+      React.useEffect(() => subscribe(() => notify(value => value + 1)), [subscribe]);
+      const snapshot = getSnapshot();
+      assert.strictEqual(snapshot, getSnapshot(), 'external-store snapshots must be stable until a publication');
+      return snapshot;
     },
   };
   class Renderer {
@@ -54,12 +67,19 @@ function fakeReact() {
       return this.tree;
     }
     flushEffects() { return this.effects.splice(0).map(effect => effect()); }
+    dispose() {
+      for (const hook of this.hooks) { hook?.cleanup?.(); if (hook && typeof hook === 'object') hook.cleanup = undefined; }
+    }
     async settle() { for (let i = 0; i < 4; i++) { await Promise.resolve(); this.render(); } }
   }
   return { React, Renderer };
 }
 
-async function fixture({ quotaRetry, writable = true, locale = 'en', user = {}, value = {}, mutation, interrogation } = {}) {
+const shieldView = (mode = 'hybrid', revision = 23) => ({
+  ns: 'gemini-routing-shield', revision, schema: {}, base: { mode: 'hybrid' }, user: {}, value: { mode },
+});
+
+async function fixture({ quotaRetry, writable = true, locale = 'en', user = {}, value = {}, shield, mutation, interrogation } = {}) {
   const { React, Renderer } = fakeReact();
   let plugin;
   let Card;
@@ -71,6 +91,18 @@ async function fixture({ quotaRetry, writable = true, locale = 'en', user = {}, 
     value: { apiKeyEnv: 'GEMINI_API_KEY', baseURL: 'https://example.test', models: [{ id: 'gemini-test' }], ...value,
       ...(quotaRetry === undefined ? {} : { quotaRetry: clone(quotaRetry) }) },
   };
+  let snapshot = { status: 'ready', view: { writable, namespaces: [view, ...(shield ? [shield] : [])] } };
+  const subscribers = new Set();
+  const publish = next => { snapshot = next; for (const notify of subscribers) notify(); };
+  const face = {
+    ensure: async () => {},
+    getSnapshot: () => snapshot,
+    subscribe(notify) { subscribers.add(notify); return () => subscribers.delete(notify); },
+    acceptView(accepted) {
+      calls.accepted.push(clone(accepted));
+      publish({ ...snapshot, view: { ...snapshot.view, namespaces: snapshot.view.namespaces.map(item => item.ns === accepted.ns ? accepted : item) } });
+    },
+  };
   const ctx = {
     effect: run => run(),
     locale: { register: (_namespace, copy) => { dictionaries = copy; }, bind: () => key => dictionaries[locale][key] },
@@ -79,18 +111,17 @@ async function fixture({ quotaRetry, writable = true, locale = 'en', user = {}, 
       register: (options, component) => { assert.equal(options.key, 'llm-gemini-native'); Card = component; },
     },
     settingsSchema: { rehydrate: x => x, nodeAtPath: (_schema, path) => { assert.deepEqual(Array.from(path), ['models']); return { meta: { default: [{ id: 'gemini-test' }] } }; } },
-    configForms: { describe: () => ({
-      ensure: async () => {},
-      getSnapshot: () => ({ view: { writable, namespaces: [view] } }),
-      acceptView: accepted => calls.accepted.push(clone(accepted)),
-    }) },
+    configForms: { describe: () => face },
     remote: {
       settings: {
         describe: async () => ({ ok: true, value: { writable, namespaces: [view] } }),
         mutate: async (ns, ops, revision) => {
           calls.mutations.push(clone({ ns, ops, revision }));
-          if (mutation) return await mutation();
-          const accepted = clone(view);
+          if (mutation) {
+            const response = await mutation(ns, ops, revision);
+            if (response !== undefined) return response;
+          }
+          const accepted = clone(snapshot.view.namespaces.find(item => item.ns === ns));
           accepted.revision++;
           for (const op of ops) {
             if (op.op === 'set') { accepted.value[op.path[0]] = op.value; accepted.user[op.path[0]] = op.value; }
@@ -120,7 +151,7 @@ async function fixture({ quotaRetry, writable = true, locale = 'en', user = {}, 
   editor.render();
   await editor.settle();
   const find = predicate => nodes(editor.tree).find(predicate);
-  const control = key => find(node => node.props['aria-label'] === t(key) && node.type === 'input');
+  const control = key => find(node => node.props['aria-label'] === t(key) && ['input', 'select'].includes(node.type));
   const button = key => find(node => node.type === 'button' && text(node) === t(key));
   const change = (key, value) => {
     const input = control(key);
@@ -129,7 +160,8 @@ async function fixture({ quotaRetry, writable = true, locale = 'en', user = {}, 
     editor.render();
   };
   const submit = () => find(node => node.type === 'form').props.onSubmit({ preventDefault() {} });
-  return { card, editor, calls, control, button, change, submit, find, t, dictionaries };
+  const pushShield = next => publish({ ...snapshot, view: { ...snapshot.view, namespaces: [snapshot.view.namespaces.find(item => item.ns === provider.settingsNs), ...(next ? [next] : [])] } });
+  return { card, editor, calls, control, button, change, submit, find, t, dictionaries, face, publish, pushShield, subscribers };
 }
 
 async function mountedCard(mount) {
@@ -347,10 +379,134 @@ test('endpoint, credential and model edits do not populate an untouched retry se
   assert.deepEqual(models.calls.mutations[0].ops, [{ op: 'unset', path: ['models'] }]);
 });
 
-test('English and Chinese render complete localized retry semantics', async () => {
-  const keys = ['quotaRetry', 'quotaRetryEnabled', 'retryCount', 'retryInitial', 'retryMax', 'retryHelp', 'retryBudget', 'retryOff', 'retryPrecision', 'invalidRetryCount', 'invalidRetryDelay', 'invalidRetryOrder'];
+test('shield hot-plugs in an open editor and discards only its own draft', async () => {
+  const f = await fixture();
+  assert.equal(f.control('shieldStrength'), undefined);
+  assert.equal(f.subscribers.size, 1);
+  f.change('endpoint', 'https://draft.example.test');
+  f.change('key', 'draft-key');
+  f.change('retryCount', '8');
+  const model = f.find(node => node.type.name === 'ModelRow');
+  model.props.update('id', 'gemini-draft');
+  f.editor.render();
+  f.pushShield(shieldView());
+  await f.editor.settle();
+  assert.equal(f.control('shieldStrength').props.value, 'hybrid');
+  assert.ok(nodes(f.find(node => node.type === 'details')).includes(f.control('shieldStrength')));
+  f.change('shieldStrength', 'fortress');
+  f.pushShield(undefined);
+  await f.editor.settle();
+  assert.equal(f.control('shieldStrength'), undefined);
+  assert.equal(f.control('endpoint').props.value, 'https://draft.example.test');
+  assert.equal(f.control('key').props.value, 'draft-key');
+  assert.equal(f.control('retryCount').props.value, '8');
+  assert.equal(f.find(node => node.type.name === 'ModelRow').props.row.model.id, 'gemini-draft');
+  f.pushShield(shieldView('probe-only', 29));
+  await f.editor.settle();
+  assert.equal(f.control('shieldStrength').props.value, 'probe-only');
+  await f.submit();
+  assert.deepEqual(f.calls.mutations.map(call => call.ns), ['llm-gemini-native']);
+  assert.deepEqual(f.calls.credentials, [['GEMINI_API_KEY', 'draft-key']]);
+  f.editor.dispose();
+  assert.equal(f.subscribers.size, 0, 'unmount disposes the mirror subscription');
+});
+
+test('shield save uses its namespace and editing revision, not a later mirror revision', async () => {
+  const f = await fixture({ shield: shieldView() });
+  f.change('shieldStrength', 'fortress');
+  f.pushShield(shieldView('probe-only', 24));
+  await f.editor.settle();
+  assert.equal(f.control('shieldStrength').props.value, 'fortress');
+  await f.submit();
+  assert.deepEqual(f.calls.mutations, [{ ns: 'gemini-routing-shield', revision: 23, ops: [{ op: 'set', path: ['mode'], value: 'fortress' }] }]);
+  assert.equal(f.calls.accepted[0].ns, 'gemini-routing-shield');
+  assert.deepEqual(f.calls.closed, [true]);
+});
+
+test('shield unchanged, reverted, cancelled, and removed drafts do not write', async () => {
+  for (const action of ['unchanged', 'reverted', 'cancelled', 'removed']) {
+    const f = await fixture({ shield: shieldView() });
+    if (action !== 'unchanged') f.change('shieldStrength', 'fortress');
+    if (action === 'reverted') f.change('shieldStrength', 'hybrid');
+    if (action === 'removed') f.pushShield(undefined); // Submit even before a subscriber-driven render.
+    if (action === 'cancelled') f.button('cancel').props.onClick();
+    else await f.submit();
+    assert.deepEqual(f.calls.mutations, [], action);
+    assert.equal(f.calls.closed.length, 1, action);
+    f.editor.dispose();
+    assert.equal(f.subscribers.size, 0);
+  }
+});
+
+test('shield mirror errors hide controls and read-only or busy states disable them', async () => {
+  const readonly = await fixture({ shield: shieldView(), writable: false });
+  assert.equal(readonly.control('shieldStrength').props.disabled, true);
+  await readonly.submit();
+  assert.deepEqual(readonly.calls.mutations, []);
+  const f = await fixture({ shield: shieldView() });
+  f.change('shieldStrength', 'fortress');
+  const accepted = f.face.getSnapshot();
+  f.publish({ ...accepted, error: 'Refresh failed' });
+  await f.editor.settle();
+  assert.equal(f.control('shieldStrength'), undefined);
+  f.publish(accepted);
+  await f.editor.settle();
+  assert.equal(f.control('shieldStrength').props.value, 'hybrid');
+  f.publish({ ...accepted, view: { ...accepted.view, writable: false } });
+  await f.editor.settle();
+  assert.equal(f.control('shieldStrength').props.disabled, true);
+  let release;
+  const busy = await fixture({ shield: shieldView(), mutation: () => new Promise(resolve => { release = resolve; }) });
+  busy.change('shieldStrength', 'fortress');
+  const pending = busy.submit();
+  busy.editor.render();
+  assert.equal(busy.control('shieldStrength').props.disabled, true);
+  release(undefined);
+  await pending;
+});
+
+test('shield rejection preserves its draft and stops provider writes', async () => {
+  const f = await fixture({ shield: shieldView(), mutation: () => ({ ok: false, error: { message: 'Shield revision conflict' } }) });
+  f.change('shieldStrength', 'fortress');
+  f.change('endpoint', 'https://draft.example.test');
+  await f.submit();
+  f.editor.render();
+  assert.deepEqual(f.calls.mutations.map(call => call.ns), ['gemini-routing-shield']);
+  assert.equal(f.control('shieldStrength').props.value, 'fortress');
+  assert.equal(f.control('endpoint').props.value, 'https://draft.example.test');
+  assert.ok(text(f.editor.tree).includes('Shield revision conflict'));
+  assert.deepEqual(f.calls.closed, []);
+});
+
+test('a provider failure after shield success does not resubmit the shield on retry', async () => {
+  let rejected = false;
+  const f = await fixture({ shield: shieldView(), mutation(ns) {
+    if (ns === 'llm-gemini-native' && !rejected) {
+      rejected = true;
+      return { ok: false, error: { message: 'Provider write failed' } };
+    }
+  } });
+  f.change('shieldStrength', 'fortress');
+  f.change('endpoint', 'https://draft.example.test');
+  await f.submit();
+  await f.editor.settle();
+  assert.equal(f.control('shieldStrength').props.value, 'fortress');
+  assert.equal(f.control('endpoint').props.value, 'https://draft.example.test');
+  assert.deepEqual(f.calls.closed, []);
+  await f.submit();
+  assert.deepEqual(f.calls.mutations.map(call => call.ns), ['gemini-routing-shield', 'llm-gemini-native', 'llm-gemini-native']);
+  assert.deepEqual(f.calls.accepted.map(view => view.ns), ['gemini-routing-shield', 'llm-gemini-native']);
+  assert.deepEqual(f.calls.closed, [true]);
+});
+
+test('English and Chinese render localized retry and shield settings', async () => {
+  const keys = ['quotaRetry', 'quotaRetryEnabled', 'retryCount', 'retryInitial', 'retryMax', 'retryHelp', 'retryBudget', 'retryOff', 'retryPrecision', 'invalidRetryCount', 'invalidRetryDelay', 'invalidRetryOrder', 'shieldTitle', 'shieldStrength', 'shieldLight', 'shieldBalanced', 'shieldStrong', 'shieldHelp'];
   for (const locale of ['en', 'zh']) {
-    const f = await fixture({ locale });
+    const f = await fixture({ locale, shield: shieldView() });
+    const select = f.control('shieldStrength');
+    assert.deepEqual(select.children.map(option => option.props.value), ['probe-only', 'hybrid', 'fortress']);
+    assert.deepEqual(select.children.map(text), ['shieldLight', 'shieldBalanced', 'shieldStrong'].map(f.t));
+    if (locale === 'zh') assert.equal(select.props['aria-label'], '防护强度');
     for (const key of keys) assert.equal(typeof f.dictionaries[locale][key], 'string', `${locale}:${key}`);
     const content = text(f.editor.tree);
     for (const key of ['retryHelp', 'retryBudget', 'retryOff', 'retryPrecision']) assert.ok(content.includes(f.t(key)), key);

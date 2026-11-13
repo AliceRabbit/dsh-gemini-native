@@ -3,6 +3,8 @@ MIT License
 Copyright (c) 2026 dsh-gemini-native contributors
 Portions of the settings interface are adapted from DeepSeek Harness.
 Copyright (c) 2026 DeepSeek
+The routing-shield strategy and probe text are adapted from fxxk-router 1.0.0,
+whose plugin manifest declares the MIT license.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

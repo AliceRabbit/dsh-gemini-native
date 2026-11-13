@@ -32,6 +32,9 @@ window.__ModuleLoader__.load({
         invalidRetryCount: '最大重试次数必须为 1–20 的整数。',
         invalidRetryDelay: '等待时间必须为 1–300 秒，最多 3 位小数。',
         invalidRetryOrder: '最长等待不得小于初始等待。',
+        shieldStrength: '防护强度', shieldTitle: 'Gemini 防降智',
+        shieldLight: '轻量 · 220 字符起', shieldBalanced: '均衡 · 5,000 字符起（默认）', shieldStrong: '强化 · 6,400 字符起',
+        shieldHelp: '档位越高，输入开销越大。保存后应用于后续请求。关闭组件会隐藏此设置，并保留已保存的档位。',
       },
       en: {
         key: 'API key', savedKey: 'Leave blank to use saved credentials', newKey: 'Leave blank to use environment authentication ({ref})',
@@ -60,6 +63,9 @@ window.__ModuleLoader__.load({
         invalidRetryCount: 'Maximum retries must be a whole number from 1 to 20.',
         invalidRetryDelay: 'Delays must be 1–300 seconds with up to 3 decimal places.',
         invalidRetryOrder: 'Maximum delay must not be less than initial delay.',
+        shieldStrength: 'Shield strength', shieldTitle: 'Gemini routing shield',
+        shieldLight: 'Light · 220+ characters', shieldBalanced: 'Balanced · 5,000+ characters (default)', shieldStrong: 'Strong · 6,400+ characters',
+        shieldHelp: 'Higher settings use more input. Saved changes apply to future requests. Disabling the component hides this setting and keeps your saved mode.',
       },
     };
     // Settings control styles are copied from Harness 0.2.1 and scoped to this plugin.
@@ -286,6 +292,15 @@ window.__ModuleLoader__.load({
       const [retryEdited, setRetryEdited] = React.useState(false);
       const retryHelpId = React.useId();
       const retryErrorId = React.useId();
+      const shieldHelpId = React.useId();
+      const mirror = React.useMemo(() => {
+        const face = ctx.configForms.describe();
+        return { subscribe: listener => face.subscribe(listener), getSnapshot: () => face.getSnapshot() };
+      }, [ctx]);
+      const settings = React.useSyncExternalStore(mirror.subscribe, mirror.getSnapshot);
+      const shield = !settings.error && settings.view?.namespaces.find(row => row.ns === 'gemini-routing-shield');
+      const [shieldDraft, setShieldDraft] = React.useState(null);
+      React.useEffect(() => { if (!shield) setShieldDraft(null); }, [!!shield]);
       React.useEffect(() => {
         let active = true;
         const face = ctx.configForms.describe();
@@ -347,10 +362,20 @@ window.__ModuleLoader__.load({
       }
       async function save(event) {
         event.preventDefault();
-        if (!view || busy || fetching || !view.writable || keyError || endpointError || modelError || retryError) return;
+        const current = mirror.getSnapshot();
+        if (!view || busy || fetching || !current.view?.writable || keyError || endpointError || modelError || retryError) return;
         setBusy(true);
         setFailure('');
         try {
+          // The optional component owns its namespace. Recheck it at submission:
+          // an open editor must not write a draft after the component is removed.
+          const activeShield = !current.error && current.view?.namespaces.find(row => row.ns === 'gemini-routing-shield');
+          if (activeShield && shieldDraft && shieldDraft.mode !== activeShield.value.mode) {
+            const accepted = result(await ctx.remote.settings.mutate(activeShield.ns,
+              [{ op: 'set', path: ['mode'], value: shieldDraft.mode }], shieldDraft.revision));
+            ctx.configForms.describe().acceptView(accepted);
+            setShieldDraft(null);
+          }
           const ops = [];
           const address = baseURL.trim();
           if (endpointEdited && address !== (view.user.baseURL ?? '')) ops.push(address ? { op: 'set', path: ['baseURL'], value: address } : { op: 'unset', path: ['baseURL'] });
@@ -376,7 +401,7 @@ window.__ModuleLoader__.load({
         } catch (error) { setFailure(error.message); } finally { setBusy(false); }
       }
       if (!view) return h('p', { className: failure ? 'gn-error' : 'gn-advancedHint', role: failure ? 'alert' : 'status' }, failure || t('loading'));
-      const disabled = busy || fetching || !view.writable;
+      const disabled = busy || fetching || !settings.view?.writable;
       const credentialRef = view.value.apiKeyEnv;
       return h(React.Fragment, null,
         h('form', { className: 'gn-editor', onSubmit: save },
@@ -395,6 +420,14 @@ window.__ModuleLoader__.load({
                 h('label', { className: 'gn-field' }, h('span', { className: 'gn-fieldLabel' }, t('endpoint')),
                   h('input', { className: 'gn-input', type: 'text', value: baseURL, placeholder: view.base.baseURL || provider.defaultBaseURL, 'aria-label': t('endpoint'), 'aria-invalid': !!endpointError, onChange: event => { setBaseURL(event.target.value); setEndpointEdited(true); } })),
                 endpointError ? h('p', { className: 'gn-error' }, endpointError) : null,
+                shield ? h('section', { className: 'gn-modelCatalog', 'aria-label': t('shieldTitle') },
+                  h('span', { className: 'gn-modelCatalogTitle' }, t('shieldTitle')),
+                  h('label', { className: 'gn-field' }, h('span', { className: 'gn-fieldLabel' }, t('shieldStrength')),
+                    h('select', { className: 'gn-input', value: shieldDraft?.mode ?? shield.value.mode,
+                      disabled: disabled || !settings.view.writable, 'aria-label': t('shieldStrength'), 'aria-describedby': shieldHelpId,
+                      onChange: event => setShieldDraft({ mode: event.target.value, revision: shieldDraft?.revision ?? shield.revision }) },
+                      ...[['probe-only', 'shieldLight'], ['hybrid', 'shieldBalanced'], ['fortress', 'shieldStrong']].map(([value, label]) => h('option', { key: value, value }, t(label))))),
+                  h('p', { id: shieldHelpId, className: 'gn-advancedHint' }, t('shieldHelp'))) : null,
                 h('section', { className: 'gn-modelCatalog', 'aria-label': t('quotaRetry') },
                   h('span', { className: 'gn-modelCatalogTitle' }, t('quotaRetry')),
                   h('label', { className: 'gn-checkbox' },
