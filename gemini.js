@@ -18,10 +18,16 @@ export const DEFAULT_MODELS = [
   { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
 ];
 
-export function modelInfo(provider, id, config) {
-  const entry = config.models.find(model => model.id === id) ?? { id };
+function thinkingMode(id, entry) {
+  if (entry.thinking) return entry.thinking;
   const version = Number(/^gemini-(\d+(?:\.\d+)?)/.exec(id)?.[1]);
-  const thinking = entry.thinking ?? (version >= 3 ? 'level' : version === 2.5 ? 'budget' : 'none');
+  if (version >= 3) return 'level';
+  if (version === 2.5) return 'budget';
+  return entry.reasoningEfforts?.length ? 'level' : 'none';
+}
+
+export function modelInfo(provider, id, config, entry = config.models.find(model => model.id === id) ?? { id }) {
+  const thinking = thinkingMode(id, entry);
   const efforts = entry.reasoningEfforts ?? (
     thinking === 'none' ? [] : /^gemini-3-pro/.test(id) ? ['low', 'high'] : ['low', 'medium', 'high']
   );
@@ -101,18 +107,26 @@ export async function toRequest(options, config, services = {}) {
     const parts = [];
     for (const block of blocks) {
       if (block.type === 'text') parts.push({ text: block.text });
-      if (block.type === 'image') {
+      else if (block.type === 'image') {
         const ref = block.attachment;
-        if (!images.has(ref.attachmentId)) {
+        let cached = images.get(ref.attachmentId);
+        if (!cached) {
           if (!services.attachments) throw new LlmError('Gemini image input requires the attachment service', 'UNSUPPORTED_CONTENT');
-          images.set(ref.attachmentId, await services.attachments.readImageRequest(ref, {
+          const image = await services.attachments.readImageRequest(ref, {
             width: ref.width, height: ref.height, maxBytes: ref.bytes,
-          }, options.signal));
+          }, options.signal);
+          const { data } = image;
+          cached = {
+            image,
+            inlineData: {
+              mimeType: image.mediaType,
+              data: Buffer.from(data.buffer, data.byteOffset, data.byteLength).toString('base64'),
+            },
+          };
+          images.set(ref.attachmentId, cached);
         }
-        const image = images.get(ref.attachmentId);
         const access = resolveImageAttachmentAccess(services.attachments, services.processPath, ref);
-        parts.push({ text: requestImageHandleText(ref, image, access) });
-        parts.push({ inlineData: { mimeType: image.mediaType, data: Buffer.from(image.data).toString('base64') } });
+        parts.push({ text: requestImageHandleText(ref, cached.image, access) }, { inlineData: cached.inlineData });
       }
     }
     return parts;
@@ -121,10 +135,13 @@ export async function toRequest(options, config, services = {}) {
     if (message.role === 'system' || message.role === 'developer') {
       for (const block of message.content) {
         if (block.type !== 'text') continue;
-        const section = message.role === 'system' && message.source?.kind === 'system-prompt'
-          ? extractShield(block.text) : { text: block.text };
-        system.push(section.text);
-        if (section.shield) shield = section.shield;
+        if (message.role === 'system' && message.source?.kind === 'system-prompt') {
+          const section = extractShield(block.text);
+          system.push(section.text);
+          if (section.shield) shield = section.shield;
+        } else {
+          system.push(block.text);
+        }
       }
     } else if (message.role === 'assistant') {
       const state = message.source?.replayState;
@@ -134,7 +151,9 @@ export async function toRequest(options, config, services = {}) {
         if (block.type === 'tool-call') calls.set(block.id, {
           name: toolName(block.name), ...(replay?.[index]?.nativeId ? { id: replay[index].nativeId } : {}),
         });
-        if (['text', 'reasoning', 'tool-call'].includes(block.type)) parts.push(...restoreParts(block, replay?.[index]));
+        if (block.type === 'text' || block.type === 'reasoning' || block.type === 'tool-call') {
+          parts.push(...restoreParts(block, replay?.[index]));
+        }
       }
       append('model', parts);
     } else if (message.role === 'tool') {
@@ -151,16 +170,16 @@ export async function toRequest(options, config, services = {}) {
 
   if (shield) append('user', [{ text: shield }]);
 
-  const model = modelInfo(options.provider, options.model, config);
-  const entry = config.models.find(entry => entry.id === options.model) ?? {};
+  const entry = config.models.find(model => model.id === options.model) ?? { id: options.model };
+  const model = modelInfo(options.provider, options.model, config, entry);
   const effort = options.reasoningEffort ?? model.reasoning?.defaultEffort;
   const isGemini4 = /^gemini-4(?:[.-]|$)/.test(options.model);
   const maxOutputTokens = options.maxTokens ?? model.defaultMaxTokens;
   if (isGemini4 && maxOutputTokens > 65536) {
-    throw new LlmError('Gemini 4 single-request output is limited to 65,536 tokens; long decode is not enabled in this provider.', 'UNSUPPORTED_OPTION');
+    throw new LlmError('Gemini 4 max output tokens cannot exceed 65,536.', 'UNSUPPORTED_OPTION');
   }
-  const thinking = entry.thinking ?? (/^gemini-2\.5/.test(options.model) ? 'budget' : 'level');
-  const thinkingConfig = effort === undefined ? undefined : {
+  const thinking = thinkingMode(options.model, entry);
+  const thinkingConfig = !effort || thinking === 'none' ? undefined : {
     includeThoughts: true,
     ...(thinking === 'budget' ? {
       thinkingBudget: entry.thinkingBudgets?.[effort] ?? ({
@@ -168,7 +187,7 @@ export async function toRequest(options, config, services = {}) {
       })[effort],
     } : { thinkingLevel: effort.toUpperCase() }),
   };
-  const tools = (options.tools ?? []).filter(tool => !tool.deferLoading);
+  const tools = options.tools?.filter(tool => !tool.deferLoading);
   return {
     model: options.model,
     contents,
@@ -181,16 +200,24 @@ export async function toRequest(options, config, services = {}) {
       ...(system.length ? { systemInstruction: system.join('\n\n') } : {}),
       ...(thinkingConfig ? { thinkingConfig } : {}),
       ...(!isGemini4 && options.temperature !== undefined ? { temperature: options.temperature } : {}),
-      ...(options.stop ? { stopSequences: [...options.stop] } : {}),
-      ...(tools.length ? { tools: [{ functionDeclarations: tools.map(tool => ({
+      ...(options.stop?.length ? { stopSequences: options.stop } : {}),
+      ...(tools?.length ? { tools: [{ functionDeclarations: tools.map(tool => ({
         name: toolName(tool.name), description: tool.description, parametersJsonSchema: tool.parameters,
       })) }] } : {}),
     },
   };
 }
 
+function isUnsignedPart(part, ignoreLength = false) {
+  for (const key in part) {
+    if (key !== 'thought' && (!ignoreLength || key !== 'length')) return false;
+  }
+  return true;
+}
+
 export async function* toChunks(stream, options) {
-  const names = new Map((options.tools ?? []).map(tool => [toolName(tool.name), tool.name]));
+  const names = new Map();
+  for (const tool of options.tools ?? []) names.set(toolName(tool.name), tool.name);
   const blocks = [];
   const replay = [];
   let current = -1;
@@ -231,7 +258,9 @@ export async function* toChunks(stream, options) {
           yield { type: 'block-start', index: current, blockType: type };
         }
         const { text = '', ...metadata } = part;
-        replay[current].parts.push({ length: text.length, ...metadata });
+        const prev = replay[current].parts.at(-1);
+        if (prev && isUnsignedPart(metadata) && isUnsignedPart(prev, true)) prev.length += text.length;
+        else replay[current].parts.push({ length: text.length, ...metadata });
         blocks[current].text += text;
         if (text) yield { type: `${type}-delta`, index: current, text };
       } else {
@@ -278,7 +307,7 @@ function sdkError(error, signal) {
 }
 
 export class GeminiAdapter extends LlmAdapter {
-  constructor({ options, resolveApiKey, services = () => ({}), fetch }) {
+  constructor({ options, resolveApiKey, services = {}, fetch }) {
     super();
     this.options = options;
     this.resolveApiKey = resolveApiKey;
@@ -292,7 +321,7 @@ export class GeminiAdapter extends LlmAdapter {
   }
   async listModels(provider) {
     const config = this.options();
-    return config.models.map(model => modelInfo(provider, model.id, config));
+    return config.models.map(entry => modelInfo(provider, entry.id, config, entry));
   }
   async resolveModel(provider, model) { return modelInfo(provider, model, this.options()); }
   async prepareCall(provider, model) {
@@ -305,7 +334,7 @@ export class GeminiAdapter extends LlmAdapter {
     const signal = options.signal ? AbortSignal.any([options.signal, consumer.signal]) : consumer.signal;
     try {
       const apiKey = await this.resolveApiKey(config);
-      const request = await toRequest({ ...options, signal }, config, this.services());
+      const request = await toRequest({ ...options, signal }, config, this.services);
       const client = createClient(config, apiKey, this.fetch);
       yield* toChunks(await client.models.generateContentStream(request), options);
     } catch (error) {

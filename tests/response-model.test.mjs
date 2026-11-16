@@ -36,8 +36,17 @@ test('missing or malformed versions never fall back to the request or a previous
 });
 
 test('tool-call response keeps both the model version and replay signatures', async () => {
-  const chunks = await collect([{ modelVersion: 'gemini-tool-model', candidates: [{ content: { parts: [{ functionCall: { name: 'lookup', args: { q: 'test' } }, thoughtSignature: 'signature' }] }, finishReason: 'STOP' }] }]);
+  const chunks = await collect([
+    { candidates: [{ content: { parts: [{ text: 'step ', thought: true }] } }] },
+    { candidates: [{ content: { parts: [{ text: 'one', thought: true }] } }] },
+    { candidates: [{ content: { parts: [{ text: '!', thought: true, thoughtSignature: 'thought-sig' }] } }] },
+    { modelVersion: 'gemini-tool-model', candidates: [{ content: { parts: [{ functionCall: { name: 'lookup', args: { q: 'test' } }, thoughtSignature: 'signature' }] }, finishReason: 'STOP' }] },
+  ]);
   assert.equal(identity(chunks).modelVersion, 'gemini-tool-model');
   assert.equal(chunks.at(-1).reason.kind, 'tool-calls');
-  assert.equal(chunks.at(-1).replayState.blocks[0].metadata.thoughtSignature, 'signature');
+  assert.deepEqual(chunks.at(-1).replayState.blocks[0].parts, [
+    { length: 8, thought: true },
+    { length: 1, thought: true, thoughtSignature: 'thought-sig' },
+  ]);
+  assert.equal(chunks.at(-1).replayState.blocks[1].metadata.thoughtSignature, 'signature');
 });

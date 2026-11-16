@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Gemini Native",
-    "description": "Adds a ready-to-configure Gemini provider with Gemini 4, native streaming, images, tool calls and configurable native quota retries."
+    "title": "Gemini",
+    "description": "Connect to the Gemini API and compatible endpoints with Google's official SDK, supporting streaming, thinking, vision, tool calls, and automatic retries."
   }
 }

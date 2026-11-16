@@ -1,71 +1,65 @@
 window.__ModuleLoader__.load({
-  id: '@local/dsh-gemini-native',
+  id: 'dsh-gemini-native',
   factory(require) {
     const React = require('react');
     const h = React.createElement;
     const NS = 'gemini-native';
     const copy = {
       zh: {
-        key: 'API 密钥', savedKey: '留空使用已保存凭据', newKey: '留空使用环境认证（{ref}）',
+        key: 'API 密钥', savedKey: '留空保留当前密钥', newKey: '留空读取环境变量 {ref}',
         show: '显示密钥', hide: '隐藏密钥', authHelp: '认证说明',
-        authHint: '优先使用已保存的凭据，也可设置环境变量 {ref}。留空保留现有凭据。',
-        missingKey: '未检测到环境变量。请填写 API 密钥，或设置环境变量 {ref}。',
-        customized: '自定义设置', geminiSettings: '编辑 Gemini 设置', endpoint: 'API 地址', models: '模型目录',
-        inherited: '正在使用适配器默认模型', customizedModels: '已自定义模型目录', reset: '恢复默认模型',
-        modelId: '模型 ID', modelName: '显示名称', context: '上下文窗口', output: '最大输出 token 数',
-        inputTypes: '输入类型', text: '文本', image: '图片', advanced: '模型选项',
-        add: '添加模型', remove: '删除模型', fetch: '获取可用模型', fetching: '正在询问提供商…',
-        save: '保存', cancel: '取消', close: '关闭', loading: '加载中…', busy: '保存中…', saved: '已保存 Gemini。',
-        empty: '模型选择器中将不显示任何模型；目录外 ID 仍可直接发送。',
-        invalidEndpoint: '请输入有效的 HTTP 或 HTTPS 地址。', invalidKey: '该 API 密钥格式错误，请检查。',
-        invalidId: '模型 ID 不能为空，且每个 ID 只能出现一次。', invalidCapacity: '容量需为正整数，可加 K 或 M 后缀。',
-        missing: 'Gemini 设置暂不可用，请重新打开设置。',
-        fetchEmpty: '该提供商没有列出任何模型，请手动添加。', fetchTitle: '选择要添加的模型',
-        fetchDescription: '以下是模型提供商的可用模型，勾选要添加的模型。', search: '搜索模型',
+        authHint: '优先使用已保存的密钥；未设置时读取环境变量 {ref}。',
+        missingKey: '请填写 API 密钥，或设置环境变量 {ref}。',
+        customized: '自定义设置', geminiSettings: '编辑 Gemini 设置', endpoint: 'API 地址', models: '模型列表',
+        inherited: '默认列表', customizedModels: '已自定义', reset: '恢复默认',
+        modelId: '模型 ID', modelName: '显示名称', context: '上下文窗口', output: '最大输出 token',
+        inputTypes: '输入模态', text: '文本', image: '图片', advanced: '模型参数',
+        add: '添加模型', remove: '删除模型', fetch: '获取模型列表', fetching: '获取中…',
+        save: '保存', cancel: '取消', close: '关闭', loading: '加载中…', busy: '保存中…', saved: '已保存 Gemini 设置。',
+        empty: '列表为空，模型选择器中将不显示 Gemini 模型。',
+        invalidEndpoint: '请输入有效的 HTTP 或 HTTPS 地址。', invalidKey: 'API 密钥格式无效，请检查。',
+        invalidId: '模型 ID 不能为空且不能重复。', invalidCapacity: '请输入正整数，可使用 K 或 M 后缀。',
+        missing: '无法读取 Gemini 设置，请重新打开设置页面。',
+        fetchEmpty: '未获取到可用模型，请手动添加。', fetchTitle: '选择要添加的模型',
+        fetchDescription: '勾选需要加入列表的模型。', search: '搜索模型',
         noMatches: '没有匹配的模型。', selectAll: '全选', deselectAll: '取消全选', adopt: '添加所选',
-        quotaRetry: '额度与临时错误重试', quotaRetryEnabled: '启用额度重试', retryCount: '最大重试次数',
+        quotaRetry: '限流与错误重试', quotaRetryEnabled: '开启限流自动重试', retryCount: '最大重试次数',
         retryInitial: '初始等待（秒）', retryMax: '最长等待（秒）',
-        retryHelp: '仅对 gemini-native 路由生效。开启后使用 Harness 原生 normal 策略，保留原生五类可重试错误并加入 QUOTA；采用以下次数和指数退避，随机抖动为 10%。默认开启，默认 5 次、5–30 秒。',
-        retryBudget: '同一模型请求步骤内的错误共享重试预算，不会重复发送“继续”，也不会从头执行工具。额度真的耗尽时仍可能失败。',
-        retryOff: '关闭后完全恢复 Harness 原生 normal 默认：最多重试 5 次，退避 0.5–10 秒，不额外重试 QUOTA。',
-        retryPrecision: '次数为 1–20 的整数；时间为 1–300 秒，最多 3 位小数（0.001 秒）。最长等待不得小于初始等待。',
-        invalidRetryCount: '最大重试次数必须为 1–20 的整数。',
-        invalidRetryDelay: '等待时间必须为 1–300 秒，最多 3 位小数。',
-        invalidRetryOrder: '最长等待不得小于初始等待。',
-        shieldStrength: '防护强度', shieldTitle: 'Gemini 防降智',
-        shieldLight: '轻量 · 220 字符起', shieldBalanced: '均衡 · 5,000 字符起（默认）', shieldStrong: '强化 · 6,400 字符起',
-        shieldHelp: '档位越高，输入开销越大。保存后应用于后续请求。关闭组件会隐藏此设置，并保留已保存的档位。',
+        retryHelp: '遇到 429 限流、临时配额不足或网络波动时按指数退避自动重试；关闭后使用默认重试策略。',
+        invalidRetryCount: '重试次数需为 1–20 的整数。',
+        invalidRetryDelay: '等待时间需为 1–300 秒（最多 3 位小数）。',
+        invalidRetryOrder: '最长等待不能小于初始等待。',
+        shieldStrength: '防护强度', shieldTitle: '防降智',
+        shieldLight: '轻量', shieldBalanced: '均衡（默认）', shieldStrong: '强化',
+        shieldHelp: '强度越高，附加的上下文开销越大。保存后对后续请求生效。',
       },
       en: {
-        key: 'API key', savedKey: 'Leave blank to use saved credentials', newKey: 'Leave blank to use environment authentication ({ref})',
+        key: 'API key', savedKey: 'Leave blank to keep saved key', newKey: 'Leave blank to use {ref}',
         show: 'Show key', hide: 'Hide key', authHelp: 'Authentication help',
-        authHint: 'Saved credentials take priority. You can also set {ref}. Leave blank to keep existing credentials.',
-        missingKey: 'No environment variable detected. Enter an API key or set {ref}.',
-        customized: 'Customized settings', geminiSettings: 'Edit Gemini settings', endpoint: 'API endpoint', models: 'Model catalog',
-        inherited: 'Using adapter default models', customizedModels: 'Customized model catalog', reset: 'Restore default models',
+        authHint: 'Saved keys take priority; falls back to {ref} when unset.',
+        missingKey: 'Enter an API key or set the {ref} environment variable.',
+        customized: 'Customized settings', geminiSettings: 'Edit Gemini settings', endpoint: 'API endpoint', models: 'Models',
+        inherited: 'Default list', customizedModels: 'Customized', reset: 'Reset defaults',
         modelId: 'Model ID', modelName: 'Display name', context: 'Context window', output: 'Max output tokens',
         inputTypes: 'Input types', text: 'Text', image: 'Image', advanced: 'Model options',
-        add: 'Add model', remove: 'Remove model', fetch: 'Fetch available models', fetching: 'Asking provider…',
-        save: 'Save', cancel: 'Cancel', close: 'Close', loading: 'Loading…', busy: 'Saving…', saved: 'Saved Gemini.',
-        empty: 'No models will appear in the picker; IDs outside the catalog can still be sent directly.',
-        invalidEndpoint: 'Enter a valid HTTP or HTTPS address.', invalidKey: 'This API key has an invalid format.',
-        invalidId: 'Model IDs must be nonempty and unique.', invalidCapacity: 'Enter a positive whole number, optionally followed by K or M.',
-        missing: 'Gemini settings are unavailable. Reopen settings.',
-        fetchEmpty: 'The provider did not list any models. Add them manually.', fetchTitle: 'Select models to add',
-        fetchDescription: 'These models are available from the provider. Select the models to add.', search: 'Search models',
+        add: 'Add model', remove: 'Remove model', fetch: 'Fetch models', fetching: 'Fetching…',
+        save: 'Save', cancel: 'Cancel', close: 'Close', loading: 'Loading…', busy: 'Saving…', saved: 'Saved Gemini settings.',
+        empty: 'No Gemini models will appear in the model picker.',
+        invalidEndpoint: 'Enter a valid HTTP or HTTPS URL.', invalidKey: 'Invalid API key format.',
+        invalidId: 'Model IDs must be nonempty and unique.', invalidCapacity: 'Enter a positive integer, optionally ending with K or M.',
+        missing: 'Gemini settings are unavailable. Please reopen settings.',
+        fetchEmpty: 'No models were returned by the endpoint. Add them manually.', fetchTitle: 'Add models',
+        fetchDescription: 'Select the models to add to your list.', search: 'Search models',
         noMatches: 'No matching models.', selectAll: 'Select all', deselectAll: 'Deselect all', adopt: 'Add selected',
-        quotaRetry: 'Quota and temporary-error retries', quotaRetryEnabled: 'Enable quota retries', retryCount: 'Maximum retries',
-        retryInitial: 'Initial delay (seconds)', retryMax: 'Maximum delay (seconds)',
-        retryHelp: 'Only applies to the gemini-native route. Uses Harness’s native normal strategy, retaining its five retryable error classes and adding QUOTA, with the retry count and exponential backoff below and 10% jitter. Enabled by default: 5 retries, 5–30 seconds.',
-        retryBudget: 'Errors within the same model-request step share one retry budget. This does not send another “continue” message or rerun tools from the beginning. Truly exhausted quota can still fail.',
-        retryOff: 'Turning this off fully restores Harness’s native normal defaults: up to 5 retries, 0.5–10-second backoff, with no added QUOTA retries.',
-        retryPrecision: 'Use 1–20 whole retries and 1–300 seconds with up to 3 decimal places (0.001 second). Maximum delay must not be less than initial delay.',
-        invalidRetryCount: 'Maximum retries must be a whole number from 1 to 20.',
-        invalidRetryDelay: 'Delays must be 1–300 seconds with up to 3 decimal places.',
-        invalidRetryOrder: 'Maximum delay must not be less than initial delay.',
-        shieldStrength: 'Shield strength', shieldTitle: 'Gemini routing shield',
-        shieldLight: 'Light · 220+ characters', shieldBalanced: 'Balanced · 5,000+ characters (default)', shieldStrong: 'Strong · 6,400+ characters',
-        shieldHelp: 'Higher settings use more input. Saved changes apply to future requests. Disabling the component hides this setting and keeps your saved mode.',
+        quotaRetry: 'Rate-limit & error retries', quotaRetryEnabled: 'Retry on quota and rate-limit errors', retryCount: 'Max retries',
+        retryInitial: 'Initial delay (s)', retryMax: 'Max delay (s)',
+        retryHelp: 'Automatically backs off and retries on 429 rate limits, temporary quota errors, and network hiccups. Turn off to use the default retry policy.',
+        invalidRetryCount: 'Max retries must be a whole number from 1 to 20.',
+        invalidRetryDelay: 'Delay must be 1–300 seconds (up to 3 decimal places).',
+        invalidRetryOrder: 'Max delay cannot be less than initial delay.',
+        shieldStrength: 'Shield strength', shieldTitle: 'Routing shield',
+        shieldLight: 'Light', shieldBalanced: 'Balanced (default)', shieldStrong: 'Strong',
+        shieldHelp: 'Higher strength uses more input tokens. Saved changes apply to subsequent requests.',
       },
     };
     // Settings control styles are copied from Harness 0.2.1 and scoped to this plugin.
@@ -76,7 +70,6 @@ window.__ModuleLoader__.load({
       .gn-primaryButton{background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground)}
       .gn-primaryButton:hover:not(:disabled){background:var(--dsw-alias-button-primary-hover)}
       .gn-secondaryButton{border:.5px solid var(--dsw-alias-border-l3);color:var(--dsw-alias-label-primary);background:0 0}
-      .gn-secondaryButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}
       .gn-secondaryButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-solid)}
       .gn-primaryButton:disabled,.gn-secondaryButton:disabled,.gn-linkButton:disabled,.gn-addModelButton:disabled{opacity:.4;cursor:default}
       .gn-primaryButton:focus-visible,.gn-secondaryButton:focus-visible,.gn-linkButton:focus-visible,.gn-addModelButton:focus-visible,.gn-iconButton:focus-visible,.gn-customizedSummary:focus-visible{box-shadow:0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline:none}
@@ -95,7 +88,7 @@ window.__ModuleLoader__.load({
       .gn-customized{border-top:.5px solid var(--dsw-alias-border-l2);padding-top:10px}
       .gn-customizedSummary{border-radius:var(--dsw-radius-sm);cursor:pointer;width:fit-content;color:var(--dsw-alias-label-secondary);align-items:center;gap:6px;margin-left:-4px;padding:2px 4px;font-size:12px;font-weight:500;line-height:18px;list-style:none;display:flex}
       .gn-customizedSummary::-webkit-details-marker{display:none}
-      .gn-customizedSummary:before{content:"";border-bottom:1.5px solid;border-right:1.5px solid;width:5px;height:5px;transition:transform .12s;transform:rotate(-45deg)translate(-1px,-1px)}
+      .gn-customizedSummary:before{content:"";border-bottom:1.5px solid;border-right:1.5px solid;width:5px;height:5px;transform:rotate(-45deg)translate(-1px,-1px)}
       .gn-customized[open]>.gn-customizedSummary:before{transform:rotate(45deg)translate(-1px,-1px)}
       .gn-customizedSummary:hover{color:var(--dsw-alias-label-primary)}
       .gn-customizedBody{flex-direction:column;gap:12px;padding-top:12px;display:flex}
@@ -133,7 +126,6 @@ window.__ModuleLoader__.load({
       .gn-keyToggle:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:-2px}
       .gn-keyToggle:disabled{opacity:.6;cursor:default}
       .gn-error{color:var(--dsw-alias-state-error-primary);margin:0;font-size:12px;line-height:18px}
-      .gn-customizedSummary:before{transition:none}
       .gn-candidateToolbar{align-items:center;gap:8px;margin-bottom:6px;display:flex}
       .gn-candidateSearch{flex:240px;min-width:0}
       .gn-candidateList{flex-direction:column;gap:2px;max-height:320px;margin:0;padding:0;list-style:none;display:flex;overflow-y:auto}
@@ -158,15 +150,15 @@ window.__ModuleLoader__.load({
       .gn-dialogFooter {display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:0 24px}
       .gn-candidateToolbar .gn-linkButton {flex:none;color:var(--dsw-alias-label-primary)}
     `;
+    const ICONS = {
+      eye: 'M1.5 8C2.9 5.25 5.25 3.5 8 3.5C10.75 3.5 13.1 5.25 14.5 8C13.1 10.75 10.75 12.5 8 12.5C5.25 12.5 2.9 10.75 1.5 8Z M10 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0',
+      eyeOff: 'M1.5 8C2.9 5.25 5.25 3.5 8 3.5C10.75 3.5 13.1 5.25 14.5 8C13.1 10.75 10.75 12.5 8 12.5C5.25 12.5 2.9 10.75 1.5 8Z M2.5 2.5l11 11',
+      down: 'm4 6 4 4 4-4', right: 'm6 4 4 4-4 4',
+      trash: 'M3 4h10 M6 4V2h4v2 M4 4l.7 10h6.6L12 4 M6.5 6.5v5 M9.5 6.5v5',
+      plus: 'M8 3v10 M3 8h10', close: 'm4 4 8 8 M12 4l-8 8',
+    };
     function icon(name, size = 16) {
-      const paths = {
-        eye: 'M1.5 8C2.9 5.25 5.25 3.5 8 3.5C10.75 3.5 13.1 5.25 14.5 8C13.1 10.75 10.75 12.5 8 12.5C5.25 12.5 2.9 10.75 1.5 8Z M10 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0',
-        eyeOff: 'M1.5 8C2.9 5.25 5.25 3.5 8 3.5C10.75 3.5 13.1 5.25 14.5 8C13.1 10.75 10.75 12.5 8 12.5C5.25 12.5 2.9 10.75 1.5 8Z M2.5 2.5l11 11',
-        down: 'm4 6 4 4 4-4', right: 'm6 4 4 4-4 4',
-        trash: 'M3 4h10 M6 4V2h4v2 M4 4l.7 10h6.6L12 4 M6.5 6.5v5 M9.5 6.5v5',
-        plus: 'M8 3v10 M3 8h10', close: 'm4 4 8 8 M12 4l-8 8',
-      };
-      return h('svg', { width: size, height: size, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true }, h('path', { d: paths[name] }));
+      return h('svg', { width: size, height: size, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true }, h('path', { d: ICONS[name] }));
     }
     function result(response) {
       if (!response.ok) throw new Error(response.error.message);
@@ -295,7 +287,7 @@ window.__ModuleLoader__.load({
       const shieldHelpId = React.useId();
       const mirror = React.useMemo(() => {
         const face = ctx.configForms.describe();
-        return { subscribe: listener => face.subscribe(listener), getSnapshot: () => face.getSnapshot() };
+        return { face, subscribe: listener => face.subscribe(listener), getSnapshot: () => face.getSnapshot() };
       }, [ctx]);
       const settings = React.useSyncExternalStore(mirror.subscribe, mirror.getSnapshot);
       const shield = !settings.error && settings.view?.namespaces.find(row => row.ns === 'gemini-routing-shield');
@@ -303,15 +295,13 @@ window.__ModuleLoader__.load({
       React.useEffect(() => { if (!shield) setShieldDraft(null); }, [!!shield]);
       React.useEffect(() => {
         let active = true;
-        const face = ctx.configForms.describe();
-        face.ensure().then(() => {
+        mirror.face.ensure().then(() => {
           if (!active) return;
-          const snapshot = face.getSnapshot();
+          const snapshot = mirror.face.getSnapshot();
           const found = snapshot.view?.namespaces.find(view => view.ns === provider.settingsNs);
           if (!found) throw new Error(snapshot.error || t('missing'));
-          const schema = ctx.settingsSchema.rehydrate(found.schema);
-          const defaults = found.base.models ?? ctx.settingsSchema.nodeAtPath(schema, ['models']).meta.default;
-          setView({ ...found, writable: snapshot.view.writable, defaults });
+          const defaults = found.base.models ?? ctx.settingsSchema.nodeAtPath(ctx.settingsSchema.rehydrate(found.schema), ['models']).meta.default;
+          setView({ ...found, defaults });
           setBaseURL(found.user.baseURL ?? '');
           setRows(draftRows(found.value.models));
           setOverridden(Object.hasOwn(found.user, 'models'));
@@ -321,7 +311,8 @@ window.__ModuleLoader__.load({
       }, []);
       const models = rows.map(row => row.model);
       const endpoint = baseURL.trim() || view?.base.baseURL || provider.defaultBaseURL;
-      const keyError = key && (!key.trim() || !/^[\x21-\x7e]+$/.test(key.trim()) || /^[A-Z][A-Z0-9_]*=[^=]/.test(key.trim()) || /^["'`]/.test(key.trim())) ? t('invalidKey') : '';
+      const trimmedKey = key.trim();
+      const keyError = key && (!trimmedKey || !/^[\x21-\x7e]+$/.test(trimmedKey) || /^[A-Z][A-Z0-9_]*=[^=]/.test(trimmedKey) || /^["'`]/.test(trimmedKey)) ? t('invalidKey') : '';
       let endpointError = '';
       try { if (!/^https?:$/.test(new URL(endpoint).protocol)) endpointError = t('invalidEndpoint'); } catch { endpointError = t('invalidEndpoint'); }
       const ids = models.map(model => model.id.trim());
@@ -355,8 +346,7 @@ window.__ModuleLoader__.load({
         setFetching(true);
         setFetchFailure('');
         try {
-          const apiKey = key.trim();
-          const found = result(await ctx.remote.llm.discoverModels(provider.settingsNs, { provider: provider.provider, baseURL: endpoint, ...(apiKey ? { apiKey } : {}) }));
+          const found = result(await ctx.remote.llm.discoverModels(provider.settingsNs, { provider: provider.provider, baseURL: endpoint, ...(trimmedKey ? { apiKey: trimmedKey } : {}) }));
           if (found.length) setCandidates(found); else setFetchFailure(t('fetchEmpty'));
         } catch (error) { setFetchFailure(error.message); } finally { setFetching(false); }
       }
@@ -373,7 +363,7 @@ window.__ModuleLoader__.load({
           if (activeShield && shieldDraft && shieldDraft.mode !== activeShield.value.mode) {
             const accepted = result(await ctx.remote.settings.mutate(activeShield.ns,
               [{ op: 'set', path: ['mode'], value: shieldDraft.mode }], shieldDraft.revision));
-            ctx.configForms.describe().acceptView(accepted);
+            mirror.face.acceptView(accepted);
             setShieldDraft(null);
           }
           const ops = [];
@@ -385,17 +375,17 @@ window.__ModuleLoader__.load({
             else if (overridden && JSON.stringify(values) !== JSON.stringify(view.user.models)) ops.push({ op: 'set', path: ['models'], value: values });
           }
           // Do not materialize defaults or replace unrelated/redacted settings.
-          const acceptedRetry = parseRetryDraft(retryDraft(view.value.quotaRetry)).value;
+          const acceptedRetry = { ...retryDefaults, ...view.value.quotaRetry };
           if (retryEdited && JSON.stringify(parsedRetry.value) !== JSON.stringify(acceptedRetry)) {
             ops.push({ op: 'set', path: ['quotaRetry'], value: parsedRetry.value });
           }
           let committed = view;
           if (ops.length) {
             committed = result(await ctx.remote.settings.mutate(provider.settingsNs, ops, view.revision));
-            ctx.configForms.describe().acceptView(committed);
-            setView({ ...committed, writable: view.writable, defaults: view.defaults });
+            mirror.face.acceptView(committed);
+            setView({ ...committed, defaults: view.defaults });
           }
-          if (key.trim()) result(await ctx.remote.credentials.set(committed.value.apiKeyEnv, key.trim()));
+          if (trimmedKey) result(await ctx.remote.credentials.set(committed.value.apiKeyEnv, trimmedKey));
           setKey('');
           onClose(true);
         } catch (error) { setFailure(error.message); } finally { setBusy(false); }
@@ -403,6 +393,7 @@ window.__ModuleLoader__.load({
       if (!view) return h('p', { className: failure ? 'gn-error' : 'gn-advancedHint', role: failure ? 'alert' : 'status' }, failure || t('loading'));
       const disabled = busy || fetching || !settings.view?.writable;
       const credentialRef = view.value.apiKeyEnv;
+      const existingIds = candidates ? new Set(ids) : null;
       return h(React.Fragment, null,
         h('form', { className: 'gn-editor', onSubmit: save },
           h('div', { className: 'gn-editorHeader' }, h('span', { className: 'gn-editorTitle' }, provider.displayName), h('span', { className: 'gn-editorRoute' }, provider.provider)),
@@ -424,7 +415,7 @@ window.__ModuleLoader__.load({
                   h('span', { className: 'gn-modelCatalogTitle' }, t('shieldTitle')),
                   h('label', { className: 'gn-field' }, h('span', { className: 'gn-fieldLabel' }, t('shieldStrength')),
                     h('select', { className: 'gn-input', value: shieldDraft?.mode ?? shield.value.mode,
-                      disabled: disabled || !settings.view.writable, 'aria-label': t('shieldStrength'), 'aria-describedby': shieldHelpId,
+                      disabled, 'aria-label': t('shieldStrength'), 'aria-describedby': shieldHelpId,
                       onChange: event => setShieldDraft({ mode: event.target.value, revision: shieldDraft?.revision ?? shield.revision }) },
                       ...[['probe-only', 'shieldLight'], ['hybrid', 'shieldBalanced'], ['fortress', 'shieldStrong']].map(([value, label]) => h('option', { key: value, value }, t(label))))),
                   h('p', { id: shieldHelpId, className: 'gn-advancedHint' }, t('shieldHelp'))) : null,
@@ -434,8 +425,7 @@ window.__ModuleLoader__.load({
                     h('input', { type: 'checkbox', role: 'switch', checked: retry.enabled, 'aria-checked': retry.enabled,
                       'aria-label': t('quotaRetryEnabled'), 'aria-describedby': retryHelpId, disabled,
                       onChange: event => updateRetry('enabled', event.target.checked) }), t('quotaRetryEnabled')),
-                  h('div', { id: retryHelpId },
-                    ...['retryHelp', 'retryBudget', 'retryOff'].map(label => h('p', { key: label, className: 'gn-advancedHint' }, t(label)))),
+                  h('p', { id: retryHelpId, className: 'gn-advancedHint' }, t('retryHelp')),
                   h('div', { className: 'gn-retryFields' },
                     ...[['maxRetries', 'retryCount', 20, 1], ['initialDelay', 'retryInitial', 300, 0.001], ['maxDelay', 'retryMax', 300, 0.001]].map(([field, label, max, step]) => h('label', { key: field, className: 'gn-field' },
                       h('span', { className: 'gn-fieldLabel' }, t(label)),
@@ -443,7 +433,6 @@ window.__ModuleLoader__.load({
                         required: retry.enabled, disabled: disabled || !retry.enabled, 'aria-label': t(label),
                         'aria-invalid': !!parsedRetry.errors[field], 'aria-describedby': parsedRetry.errors[field] ? retryErrorId : undefined,
                         onChange: event => updateRetry(field, event.target.value) })))),
-                  h('p', { className: 'gn-advancedHint' }, t('retryPrecision')),
                   retryError ? h('p', { id: retryErrorId, className: 'gn-error', role: 'alert' }, t(retryError)) : null),
                 h('section', { className: 'gn-modelCatalog', 'aria-label': t('models') },
                   h('div', { className: 'gn-modelListHead' },
@@ -463,9 +452,8 @@ window.__ModuleLoader__.load({
             h('div', { className: 'gn-editorActions' },
               h('button', { type: 'button', className: 'gn-secondaryButton', onClick: () => onClose(false) }, t('cancel')),
               h('button', { type: 'submit', className: 'gn-primaryButton', disabled: disabled || !!keyError || !!endpointError || !!modelError || !!retryError }, t(busy ? 'busy' : 'save'))))),
-        candidates ? h(ModelPicker, { candidates, existingIds: new Set(ids), t, onClose: () => setCandidates(null), onAdd: selected => {
-          const known = new Set(ids);
-          const additions = selected.filter(model => !known.has(model.id));
+        candidates ? h(ModelPicker, { candidates, existingIds, t, onClose: () => setCandidates(null), onAdd: selected => {
+          const additions = selected.filter(model => !existingIds.has(model.id));
           if (additions.length) { setRows(current => [...current, ...draftRows(additions)]); setOverridden(true); setModelsEdited(true); }
         } }) : null);
     }
@@ -484,7 +472,7 @@ window.__ModuleLoader__.load({
         if (!row || !section || !edit) return;
         setNativeEdit(true);
         const onClick = event => {
-          if (edit?.contains(event.target)) {
+          if (edit.contains(event.target)) {
             event.stopPropagation();
             // Let the native Cancel action discard any other provider's draft.
             for (const editor of section.querySelectorAll(':scope > ul > li > div[class$="_editor"]')) editor.lastElementChild.querySelector('button').click();

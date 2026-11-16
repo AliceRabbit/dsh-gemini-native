@@ -1,9 +1,9 @@
 {
-  "name": "@local/dsh-gemini-native",
-  "version": "1.2.1",
-  "private": true,
+  "name": "dsh-gemini-native",
+  "version": "1.3.0",
   "type": "module",
   "description": "A native Gemini provider for DeepSeek Harness, powered by Google's official Gen AI SDK.",
+  "keywords": ["dsh", "deepseek-harness", "dsh-plugin", "gemini", "google-genai", "llm"],
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/AliceRabbit/dsh-gemini-native.git" },
   "homepage": "https://github.com/AliceRabbit/dsh-gemini-native#readme",

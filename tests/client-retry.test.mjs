@@ -500,7 +500,7 @@ test('a provider failure after shield success does not resubmit the shield on re
 });
 
 test('English and Chinese render localized retry and shield settings', async () => {
-  const keys = ['quotaRetry', 'quotaRetryEnabled', 'retryCount', 'retryInitial', 'retryMax', 'retryHelp', 'retryBudget', 'retryOff', 'retryPrecision', 'invalidRetryCount', 'invalidRetryDelay', 'invalidRetryOrder', 'shieldTitle', 'shieldStrength', 'shieldLight', 'shieldBalanced', 'shieldStrong', 'shieldHelp'];
+  const keys = ['quotaRetry', 'quotaRetryEnabled', 'retryCount', 'retryInitial', 'retryMax', 'retryHelp', 'invalidRetryCount', 'invalidRetryDelay', 'invalidRetryOrder', 'shieldTitle', 'shieldStrength', 'shieldLight', 'shieldBalanced', 'shieldStrong', 'shieldHelp'];
   for (const locale of ['en', 'zh']) {
     const f = await fixture({ locale, shield: shieldView() });
     const select = f.control('shieldStrength');
@@ -509,8 +509,7 @@ test('English and Chinese render localized retry and shield settings', async () 
     if (locale === 'zh') assert.equal(select.props['aria-label'], '防护强度');
     for (const key of keys) assert.equal(typeof f.dictionaries[locale][key], 'string', `${locale}:${key}`);
     const content = text(f.editor.tree);
-    for (const key of ['retryHelp', 'retryBudget', 'retryOff', 'retryPrecision']) assert.ok(content.includes(f.t(key)), key);
-    assert.match(content, /gemini-native/);
-    assert.match(content, /QUOTA/);
+    assert.ok(content.includes(f.t('retryHelp')));
+    assert.ok(content.includes(f.t('shieldHelp')));
   }
 });

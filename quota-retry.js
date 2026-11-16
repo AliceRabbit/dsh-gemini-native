@@ -8,6 +8,10 @@ export const DEFAULT_QUOTA_RETRY = Object.freeze({
   maxDelayMs: 30000,
 });
 
+const PATH = 'gemini-native.quotaRetry';
+const NORMAL_POLICY = resolveRetryPolicy(undefined, PATH);
+const QUOTA_CODES = [...new Set([...NORMAL_POLICY.retryableCodes, 'QUOTA'])];
+
 // A bounded, provider-owned policy. The SDK still makes exactly one attempt;
 // Harness owns the durable retry events, backoff, cancellation and step budget.
 export const QuotaRetrySchema = z.transform(z.object({
@@ -17,24 +21,22 @@ export const QuotaRetrySchema = z.transform(z.object({
   maxDelayMs: z.number().step(1).min(1000).max(300000).default(DEFAULT_QUOTA_RETRY.maxDelayMs),
 }), value => {
   if (value.initialDelayMs > value.maxDelayMs) {
-    throw new Error('gemini-native.quotaRetry: maxDelayMs must be greater than or equal to initialDelayMs');
+    throw new Error(`${PATH}: maxDelayMs must be greater than or equal to initialDelayMs`);
   }
   return value;
-}, true).default({ ...DEFAULT_QUOTA_RETRY });
+}, true).default(DEFAULT_QUOTA_RETRY);
 
 export function resolveQuotaRetryPolicy(input) {
   const settings = QuotaRetrySchema(input);
-  const path = 'gemini-native.quotaRetry';
-  const normal = resolveRetryPolicy(undefined, path);
-  if (!settings.enabled) return normal;
+  if (!settings.enabled) return NORMAL_POLICY;
   return resolveRetryPolicy({
     mode: 'normal',
     maxRetries: settings.maxRetries,
-    retryableCodes: [...new Set([...normal.retryableCodes, 'QUOTA'])],
+    retryableCodes: QUOTA_CODES,
     backoff: {
       initialDelayMs: settings.initialDelayMs,
       maxDelayMs: settings.maxDelayMs,
-      jitterRatio: normal.jitterRatio,
+      jitterRatio: NORMAL_POLICY.jitterRatio,
     },
-  }, path);
+  }, PATH);
 }

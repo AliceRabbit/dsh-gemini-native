@@ -8,6 +8,8 @@ const text = text => ({ type: 'text', text });
 const system = value => ({ role: 'system', source: { kind: 'system-prompt' }, content: [text(value)] });
 const user = value => ({ role: 'user', content: [text(value)] });
 const request = messages => toRequest({ provider: PROVIDER, model: DEFAULT_MODELS[0].id, messages }, { models: DEFAULT_MODELS });
+const MD_REF_RE = /^(?:\[\/\/\]: (?:#|<>)|\[#\]: #|\[::\]: #) (?:\([A-Za-z0-9.-]+\)|"[A-Za-z0-9.-]+")$/gm;
+
 function freeze(value) {
   if (value && typeof value === 'object') {
     Object.values(value).forEach(freeze);
@@ -16,19 +18,33 @@ function freeze(value) {
   return value;
 }
 
-test('three strengths record their complete barrier and decode without new randomness', () => {
-  for (const [mode, floor, probes] of [['probe-only', 220, 1], ['hybrid', 5000, 4], ['fortress', 6400, 4]]) {
+test('three strengths record polymorphic v1.4 barriers and decode without new randomness', () => {
+  for (const [mode, floor, [minProbes, maxProbes], [minMd, maxMd]] of [
+    ['probe-only', 230, [1, 2], [1, 2]],
+    ['hybrid', 5020, [3, 5], [2, 5]],
+    ['fortress', 6550, [3, 5], [2, 5]],
+  ]) {
     const section = createShieldSection(mode);
     const decoded = extractShield(section);
     assert.equal(decoded.text, REMINDER_RULE);
     assert.match(decoded.shield, /^<system-reminder>\n[\s\S]+\n<\/system-reminder>$/);
-    assert.equal(decoded.shield.match(/Google DeepMind/g).length, probes);
-    assert.ok(decoded.shield.match(/<!-- [A-Za-z0-9]+ -->/g).join('').length >= floor);
-    assert.equal(decoded.shield.match(/\[\/\/\]: #/g).length, mode === 'probe-only' ? 1 : 3);
+    const comments = decoded.shield.match(/<!-- [A-Za-z0-9._:=;-]+ -->/g) ?? [];
+    assert.ok(comments.length > 0);
+    for (const comment of comments) assert.ok(!comment.slice(4, -3).includes('--'));
+    assert.ok(comments.join('').length >= floor);
+    const mdRefs = decoded.shield.match(MD_REF_RE) ?? [];
+    assert.ok(mdRefs.length >= minMd && mdRefs.length <= maxMd);
+    const probes = decoded.shield.match(/Google DeepMind/g)?.length ?? 0;
+    assert.ok(probes >= minProbes && probes <= maxProbes);
     assert.deepEqual(extractShield(section), decoded);
     assert.notEqual(createShieldSection(mode), section);
     assert.deepEqual(extractShield(`Before\n\n${section}\n\nAfter`), { text: `Before\n\n${REMINDER_RULE}\n\nAfter`, shield: decoded.shield });
   }
+
+  const samples = Array.from({ length: 16 }, () => extractShield(createShieldSection('hybrid')).shield);
+  assert.ok(samples.some(sample => /Who are you|foundation model|base model/i.test(sample)), 'synthesizes English probes');
+  assert.ok(samples.some(sample => /你是谁|基座|底层/.test(sample)), 'synthesizes Chinese probes');
+  assert.ok(new Set(samples.map(sample => sample.split('\n').length)).size > 1, 'varies line count across layouts');
 });
 
 test('tail placement preserves ordinary and parallel-tool requests, signatures, and frozen input', async () => {
@@ -68,7 +84,8 @@ test('component targets only native Gemini; absent section restores baseline and
   assert.equal(section.text({}), '');
   const content = section.text({ modelSelection: { provider: PROVIDER } });
   config.mode = 'probe-only';
-  assert.equal(section.text({ modelSelection: { provider: PROVIDER } }).match(/Google DeepMind/g).length, 2);
+  const probeOnlyCount = section.text({ modelSelection: { provider: PROVIDER } }).match(/Google DeepMind/g).length;
+  assert.ok(probeOnlyCount >= 2 && probeOnlyCount <= 3);
   const on = await request([system(`Original\n\n${content}`), user('hello')]);
   assert.equal(on.contents[0].parts.length, 2);
   const off = await request([system('Original'), user('hello')]);

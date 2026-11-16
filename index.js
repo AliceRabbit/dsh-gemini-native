@@ -2,7 +2,7 @@ import z from '@deepseek-ai/schemastery';
 import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment';
 import { LlmError } from '@deepseek-ai/dsh-llm';
 import { BASE_URL, DEFAULT_MODELS, GeminiAdapter, NAMESPACE, PROVIDER } from './gemini.js';
-import { QuotaRetrySchema } from './quota-retry.js';
+import { QuotaRetrySchema, resolveQuotaRetryPolicy } from './quota-retry.js';
 
 export const name = 'llm-gemini-native';
 export const inject = ['llm'];
@@ -24,9 +24,10 @@ export const Config = z.object({
   headers: z.dict(z.string()).default({}).volatile(),
   quotaRetry: QuotaRetrySchema.volatile(),
 });
+const CONFIG_KEYS = Object.keys(Config.dict);
 
 export function apply(ctx, config) {
-  const options = () => Object.fromEntries(Object.keys(Config.dict).map(key => [key, config[key].get()]));
+  const options = () => Object.fromEntries(CONFIG_KEYS.map(key => [key, config[key].get()]));
   const adapter = new GeminiAdapter({
     options,
     resolveApiKey: async config => {
@@ -35,11 +36,14 @@ export function apply(ctx, config) {
       if (!hit) throw new LlmError(`Configure the Gemini API key in Settings → Models → Gemini (${config.apiKeyEnv})`, 'MISSING_CREDENTIAL');
       return hit.value;
     },
-    services: () => ({ attachments: ctx.get('attachments'), processPath: path => ctx.get('fs')?.processPathFromHostPath(path) }),
+    services: {
+      get attachments() { return ctx.get('attachments'); },
+      processPath: path => ctx.get('fs')?.processPathFromHostPath(path),
+    },
   });
   const settingsNs = ctx.fiber.entry?.options.id ?? NAMESPACE;
   const registration = ctx.llm.registerAdapter([PROVIDER], adapter);
-  let registeredPolicy = JSON.stringify(adapter.providerRetryPolicy(PROVIDER));
+  let registeredPolicy = JSON.stringify(resolveQuotaRetryPolicy(config.quotaRetry.get()));
   ctx.llm.registerConfigurableProviders([{
     provider: PROVIDER, displayName: 'Gemini', settingsNs, settingsPath: [],
     defaultBaseURL: BASE_URL, nativeAuth: { env: ['GEMINI_API_KEY'], oauth: false },
@@ -49,7 +53,7 @@ export function apply(ctx, config) {
   ctx.on('loader/volatile-update', () => {
     // Retry policies are captured by the registry, not read on every request.
     // Replace atomically; merely emitting adapters-updated would leave a stale policy.
-    const nextPolicy = JSON.stringify(adapter.providerRetryPolicy(PROVIDER));
+    const nextPolicy = JSON.stringify(resolveQuotaRetryPolicy(config.quotaRetry.get()));
     if (nextPolicy !== registeredPolicy) {
       registration.replace([PROVIDER]);
       registeredPolicy = nextPolicy;

@@ -40,7 +40,11 @@ test('fixed development dependencies stay within the runtime and library compati
   assert.equal(matches('4.0.0', manifest.peerDependencies['@deepseek-ai/schemastery']), false);
 });
 
-test('manifest and lockfile retain the same plugin version and admission ranges', () => {
+test('manifest and lockfile retain the same plugin identity, version, and admission ranges', () => {
+  assert.equal(manifest.name, 'dsh-gemini-native');
+  assert.equal(manifest.private, undefined);
+  assert.equal(lock.name, manifest.name);
+  assert.equal(lock.packages[''].name, manifest.name);
   assert.equal(lock.version, manifest.version);
   assert.equal(lock.packages[''].version, manifest.version);
   assert.equal(lock.packages[''].engines.dsh, manifest.engines.dsh);

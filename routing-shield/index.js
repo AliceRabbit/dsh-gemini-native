@@ -6,8 +6,8 @@ export const inject = ['systemPrompt'];
 export const Config = z.object({
   mode: z.union(['hybrid', 'probe-only', 'fortress']).default('hybrid').volatile(),
 }).i18n({
-  zh: { mode: { $description: '防护强度', $value: ['均衡 · 约 5,000 字符屏障（默认）', '轻量 · 约 220 字符屏障', '强化 · 约 6,400 字符屏障'] } },
-  en: { mode: { $description: 'Shield strength', $value: ['Balanced · ~5,000 barrier characters (default)', 'Light · ~220 barrier characters', 'Strong · ~6,400 barrier characters'] } },
+  zh: { mode: { $description: '防护强度', $value: ['均衡（默认）', '轻量', '强化'] } },
+  en: { mode: { $description: 'Shield strength', $value: ['Balanced (default)', 'Light', 'Strong'] } },
 });
 
 export function apply(ctx, config) {
