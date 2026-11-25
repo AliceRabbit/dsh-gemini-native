@@ -30,7 +30,7 @@ window.__ModuleLoader__.load({
         invalidRetryDelay: '等待时间需为 1–300 秒（最多 3 位小数）。',
         invalidRetryOrder: '最长等待不能小于初始等待。',
         shieldStrength: '防护强度', shieldTitle: '防降智',
-        shieldLight: '轻量', shieldBalanced: '均衡（默认）', shieldStrong: '强化',
+        shieldMinimal: '极简', shieldLight: '轻量', shieldBalanced: '均衡（默认）', shieldStrong: '强化',
         shieldHelp: '强度越高，附加的上下文开销越大。保存后对后续请求生效。',
       },
       en: {
@@ -58,7 +58,7 @@ window.__ModuleLoader__.load({
         invalidRetryDelay: 'Delay must be 1–300 seconds (up to 3 decimal places).',
         invalidRetryOrder: 'Max delay cannot be less than initial delay.',
         shieldStrength: 'Shield strength', shieldTitle: 'Routing shield',
-        shieldLight: 'Light', shieldBalanced: 'Balanced (default)', shieldStrong: 'Strong',
+        shieldMinimal: 'Minimal', shieldLight: 'Light', shieldBalanced: 'Balanced (default)', shieldStrong: 'Strong',
         shieldHelp: 'Higher strength uses more input tokens. Saved changes apply to subsequent requests.',
       },
     };
@@ -417,7 +417,7 @@ window.__ModuleLoader__.load({
                     h('select', { className: 'gn-input', value: shieldDraft?.mode ?? shield.value.mode,
                       disabled, 'aria-label': t('shieldStrength'), 'aria-describedby': shieldHelpId,
                       onChange: event => setShieldDraft({ mode: event.target.value, revision: shieldDraft?.revision ?? shield.revision }) },
-                      ...[['probe-only', 'shieldLight'], ['hybrid', 'shieldBalanced'], ['fortress', 'shieldStrong']].map(([value, label]) => h('option', { key: value, value }, t(label))))),
+                      ...[['minimal', 'shieldMinimal'], ['probe-only', 'shieldLight'], ['hybrid', 'shieldBalanced'], ['fortress', 'shieldStrong']].map(([value, label]) => h('option', { key: value, value }, t(label))))),
                   h('p', { id: shieldHelpId, className: 'gn-advancedHint' }, t('shieldHelp'))) : null,
                 h('section', { className: 'gn-modelCatalog', 'aria-label': t('quotaRetry') },
                   h('span', { className: 'gn-modelCatalogTitle' }, t('quotaRetry')),

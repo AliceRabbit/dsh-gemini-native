@@ -1,6 +1,6 @@
 {
   "name": "dsh-gemini-native",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "type": "module",
   "description": "A native Gemini provider for DeepSeek Harness, powered by Google's official Gen AI SDK.",
   "keywords": ["dsh", "deepseek-harness", "dsh-plugin", "gemini", "google-genai", "llm"],
