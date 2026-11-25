@@ -4,10 +4,10 @@ import { createShieldSection } from './payload.js';
 export const name = 'gemini-routing-shield';
 export const inject = ['systemPrompt'];
 export const Config = z.object({
-  mode: z.union(['hybrid', 'probe-only', 'fortress']).default('hybrid').volatile(),
+  mode: z.union(['hybrid', 'probe-only', 'fortress', 'minimal']).default('hybrid').volatile(),
 }).i18n({
-  zh: { mode: { $description: '防护强度', $value: ['均衡（默认）', '轻量', '强化'] } },
-  en: { mode: { $description: 'Shield strength', $value: ['Balanced (default)', 'Light', 'Strong'] } },
+  zh: { mode: { $description: '防护强度', $value: ['均衡（默认）', '轻量', '强化', '极简'] } },
+  en: { mode: { $description: 'Shield strength', $value: ['Balanced (default)', 'Light', 'Strong', 'Minimal'] } },
 });
 
 export function apply(ctx, config) {

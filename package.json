@@ -1,6 +1,6 @@
 {
   "name": "dsh-gemini-native",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "type": "module",
   "description": "A native Gemini provider for DeepSeek Harness, powered by Google's official Gen AI SDK.",
   "keywords": ["dsh", "deepseek-harness", "dsh-plugin", "gemini", "google-genai", "llm"],
@@ -8,7 +8,7 @@
   "repository": { "type": "git", "url": "git+https://github.com/AliceRabbit/dsh-gemini-native.git" },
   "homepage": "https://github.com/AliceRabbit/dsh-gemini-native#readme",
   "bugs": { "url": "https://github.com/AliceRabbit/dsh-gemini-native/issues" },
-  "engines": { "node": ">=20.3.0", "dsh": ">=0.2.1-rc.3 <0.3.0-0" },
+  "engines": { "node": ">=22.0.0", "dsh": ">=0.2.1-rc.3 <0.3.0-0" },
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
@@ -24,7 +24,7 @@
     "bundle": { "patch": "./cordis.patch.yml" },
     "client": { "platform": "web", "immediately": true, "inject": ["@deepseek-ai/dsh-client-ui-settings-models"] }
   },
-  "dependencies": { "@google/genai": "2.31.0" },
+  "dependencies": { "@google/genai": "3.6.1" },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.1.0",
     "@deepseek-ai/cosmokit": "1.9.0",

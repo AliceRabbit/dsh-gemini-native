@@ -13,7 +13,7 @@ A Gemini provider plugin for DeepSeek Harness built on Google's official Gen AI 
 
 ## Installation & Setup
 
-Requires **DeepSeek Harness 0.2.x** (`>= 0.2.1-rc.3`).
+Requires **DeepSeek Harness 0.2.x** (`>= 0.2.1-rc.3`) and **Node.js 22 or later** when running Harness from the command line.
 
 **GUI (Recommended)**
 
@@ -35,7 +35,8 @@ dsh plugin --profile <profile> add https://github.com/AliceRabbit/dsh-gemini-nat
 
 ## Configuration
 
-- **Models**: Use **Fetch models** to import models advertised by your endpoint, or add and edit models manually with custom context windows, max output tokens, and input modalities.
+- **Models**: The default list includes Gemini 4 Hydrogen, Neon, and Carbon. If you have a custom list, use **Fetch models** to add models from your endpoint without resetting your settings.
+- **Thinking levels**: Choose a level after selecting a model in the conversation. Hydrogen and Neon default to `high` and go up to `xhigh`; Carbon and Argon default to `medium` and go up to `high`; Gemini 3.5 Flash-Lite defaults to `minimal`.
 - **Rate-limit & error retries**: Enabled by default (up to 5 retries, 5–30s backoff). Adjust the limits in **Customized settings**, or turn it off to use the default Harness retry policy.
 
 ## Routing Shield (Optional)

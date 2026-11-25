@@ -13,7 +13,7 @@
 
 ## 安装与配置
 
-支持 **DeepSeek Harness 0.2.x**（`>= 0.2.1-rc.3`）。
+支持 **DeepSeek Harness 0.2.x**（`>= 0.2.1-rc.3`）；通过命令行运行 Harness 时需要 **Node.js 22 或更高版本**。
 
 **界面安装（推荐）**
 
@@ -35,7 +35,8 @@ dsh plugin --profile <profile> add https://github.com/AliceRabbit/dsh-gemini-nat
 
 ## 自定义设置
 
-- **模型列表**：可点击 **获取模型列表** 从当前接口同步模型，或手动增删模型并调整上下文长度、最大输出 token 与输入模态。
+- **模型列表**：默认包含 Gemini 4 Hydrogen、Neon、Carbon 等模型。已自定义列表时，可点击 **获取模型列表** 从当前接口添加新模型，无需重置现有配置。
+- **推理等级**：在会话中选择模型后调整。Hydrogen 和 Neon 默认 `high`，最高 `xhigh`；Carbon 和 Argon 默认 `medium`，最高 `high`；Gemini 3.5 Flash-Lite 默认 `minimal`。
 - **限流与错误重试**：默认开启（最多重试 5 次，等待 5–30 秒），可在自定义设置中调整次数与间隔，或关闭以恢复默认策略。
 
 ## 防降智组件（可选）

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { ApiError, GoogleGenAI } from '@google/genai';
+import { ApiError, GoogleGenAI, ThinkingLevel } from '@google/genai';
 import {
   LlmAdapter, LlmError, attributionHeaders, assertUsableApiKey,
   isContextWindowExceededError, isQuotaExceededError,
@@ -12,11 +12,29 @@ export const PROVIDER = 'gemini-native';
 export const NAMESPACE = 'llm-gemini-native';
 export const BASE_URL = 'https://generativelanguage.googleapis.com';
 export const DEFAULT_MODELS = [
+  { id: 'gemini-4-hydrogen', name: 'Gemini 4 Hydrogen' },
+  { id: 'gemini-4-neon', name: 'Gemini 4 Neon' },
+  { id: 'gemini-4-carbon', name: 'Gemini 4 Carbon' },
   { id: 'gemini-4-argon', name: 'Gemini 4 Argon' },
   { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash' },
+  { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash-Lite' },
   { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro' },
   { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
 ];
+
+const STANDARD_EFFORTS = ['low', 'medium', 'high'];
+const MINIMAL_EFFORTS = ['minimal', ...STANDARD_EFFORTS];
+const XHIGH_EFFORTS = [...STANDARD_EFFORTS, 'xhigh'];
+
+function thinkingDefaults(id) {
+  if (/^gemini-4-(?:neon|hydrogen)(?:-|$)/.test(id)) return [XHIGH_EFFORTS, 'high'];
+  if (/^gemini-3\.[15]-flash-lite(?:-|$)/.test(id)) return [MINIMAL_EFFORTS, 'minimal'];
+  if (/^gemini-3\.6-flash(?:-|$)/.test(id)) return [MINIMAL_EFFORTS, 'medium'];
+  if (/^gemini-3-flash(?:-|$)/.test(id)) return [MINIMAL_EFFORTS, 'high'];
+  if (/^gemini-3-pro(?:-|$)/.test(id)) return [['low', 'high'], 'high'];
+  if (/^gemini-3\.1-pro(?:-|$)/.test(id)) return [STANDARD_EFFORTS, 'high'];
+  return [STANDARD_EFFORTS, 'medium'];
+}
 
 function thinkingMode(id, entry) {
   if (entry.thinking) return entry.thinking;
@@ -28,9 +46,11 @@ function thinkingMode(id, entry) {
 
 export function modelInfo(provider, id, config, entry = config.models.find(model => model.id === id) ?? { id }) {
   const thinking = thinkingMode(id, entry);
-  const efforts = entry.reasoningEfforts ?? (
-    thinking === 'none' ? [] : /^gemini-3-pro/.test(id) ? ['low', 'high'] : ['low', 'medium', 'high']
-  );
+  const [levels, defaultLevel] = thinkingDefaults(id);
+  const efforts = thinking === 'none' ? [] : thinking === 'budget'
+    ? (entry.reasoningEfforts ?? STANDARD_EFFORTS).filter(effort => STANDARD_EFFORTS.includes(effort) || entry.thinkingBudgets?.[effort] !== undefined)
+    : entry.reasoningEfforts ?? levels;
+  const preferred = entry.defaultReasoning ?? (thinking === 'budget' ? 'medium' : defaultLevel);
   return {
     provider, id, name: entry.name ?? id,
     inputModalities: entry.inputModalities ?? ['text', 'image'],
@@ -38,7 +58,7 @@ export function modelInfo(provider, id, config, entry = config.models.find(model
     defaultMaxTokens: entry.maxTokens ?? 65536,
     ...(efforts.length ? { reasoning: {
       efforts: efforts.map(id => ({ id, name: id })),
-      defaultEffort: entry.defaultReasoning ?? (efforts.includes('medium') ? 'medium' : efforts.at(-1)),
+      defaultEffort: efforts.includes(preferred) ? preferred : efforts.includes('medium') ? 'medium' : efforts.at(-1),
     } } : {}),
   };
 }
@@ -185,7 +205,7 @@ export async function toRequest(options, config, services = {}) {
       thinkingBudget: entry.thinkingBudgets?.[effort] ?? ({
         low: 1024, medium: 8192, high: options.model.includes('pro') ? 32768 : 24576,
       })[effort],
-    } : { thinkingLevel: effort.toUpperCase() }),
+    } : { thinkingLevel: ThinkingLevel[effort.toUpperCase()] }),
   };
   const tools = options.tools?.filter(tool => !tool.deferLoading);
   return {

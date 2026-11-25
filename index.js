@@ -6,13 +6,14 @@ import { QuotaRetrySchema, resolveQuotaRetryPolicy } from './quota-retry.js';
 
 export const name = 'llm-gemini-native';
 export const inject = ['llm'];
+const reasoningEffort = z.union(['minimal', 'low', 'medium', 'high', 'xhigh']);
 const model = z.object({
   id: z.string().required(), name: z.string(),
   contextWindow: z.number().step(1).min(1), maxTokens: z.number().step(1).min(1),
   inputModalities: z.array(z.union(['text', 'image'])).default(undefined),
   thinking: z.union(['none', 'level', 'budget']),
-  reasoningEfforts: z.array(z.union(['low', 'medium', 'high'])).default(undefined),
-  defaultReasoning: z.union(['low', 'medium', 'high']),
+  reasoningEfforts: z.array(reasoningEffort).default(undefined),
+  defaultReasoning: reasoningEffort,
   thinkingBudgets: z.dict(z.number().step(1).min(0)),
 });
 export const Config = z.object({
