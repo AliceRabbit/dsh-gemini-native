@@ -2,7 +2,3 @@
     - id: llm-gemini-native
       name: 'dsh-gemini-native'
       config: {}
-    - id: gemini-routing-shield
-      name: 'dsh-gemini-native/routing-shield'
-      disabled: true
-      config: {}

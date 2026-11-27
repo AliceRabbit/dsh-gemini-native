@@ -6,7 +6,7 @@ import {
   requestImageHandleText, resolveImageAttachmentAccess,
 } from '@deepseek-ai/dsh-llm';
 import { resolveQuotaRetryPolicy } from './quota-retry.js';
-import { extractShield } from './routing-shield/payload.js';
+import { applyRoutingShield } from './routing-shield.js';
 
 export const PROVIDER = 'gemini-native';
 export const NAMESPACE = 'llm-gemini-native';
@@ -103,13 +103,15 @@ function restoreParts(block, replay) {
   }
   if (replay) {
     let offset = 0;
-    return replay.parts.map(({ length, ...metadata }) => {
+    const parts = [];
+    for (const { length, ...metadata } of replay.parts) {
       const text = block.text.slice(offset, offset + length);
       offset += length;
-      return { text, ...metadata };
-    });
+      if (text || !isUnsignedPart(metadata)) parts.push({ text, ...metadata });
+    }
+    return parts;
   }
-  return block.type === 'text' ? [{ text: block.text }] : [];
+  return block.type === 'text' && block.text ? [{ text: block.text }] : [];
 }
 
 export async function toRequest(options, config, services = {}) {
@@ -156,9 +158,9 @@ export async function toRequest(options, config, services = {}) {
       for (const block of message.content) {
         if (block.type !== 'text') continue;
         if (message.role === 'system' && message.source?.kind === 'system-prompt') {
-          const section = extractShield(block.text);
-          system.push(section.text);
-          if (section.shield) shield = section.shield;
+          const applied = applyRoutingShield(config?.routingShield, block.text, options);
+          if (applied.text) system.push(applied.text);
+          if (applied.shield) shield = applied.shield;
         } else {
           system.push(block.text);
         }
@@ -269,6 +271,8 @@ export async function* toChunks(stream, options) {
         yield { type: 'tool-call-delta', index, id: block.id, name: block.name, argumentsDelta: block.arguments };
         yield { type: 'block-end', index, block };
       } else if (part.text !== undefined || part.thoughtSignature) {
+        const { text = '', ...metadata } = part;
+        if (!text && isUnsignedPart(metadata)) continue;
         const type = part.thought ? 'reasoning' : 'text';
         if (current < 0 || blocks[current].type !== type) {
           if (current >= 0) yield { type: 'block-end', index: current, block: blocks[current] };
@@ -277,7 +281,6 @@ export async function* toChunks(stream, options) {
           replay.push({ parts: [] });
           yield { type: 'block-start', index: current, blockType: type };
         }
-        const { text = '', ...metadata } = part;
         const prev = replay[current].parts.at(-1);
         if (prev && isUnsignedPart(metadata) && isUnsignedPart(prev, true)) prev.length += text.length;
         else replay[current].parts.push({ length: text.length, ...metadata });

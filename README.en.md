@@ -39,22 +39,24 @@ dsh plugin --profile <profile> add https://github.com/AliceRabbit/dsh-gemini-nat
 - **Thinking levels**: Choose a level after selecting a model in the conversation. Hydrogen and Neon default to `high` and go up to `xhigh`; Carbon and Argon default to `medium` and go up to `high`; Gemini 3.5 Flash-Lite defaults to `minimal`.
 - **Rate-limit & error retries**: Enabled by default (up to 5 retries, 5–30s backoff). Adjust the limits in **Customized settings**, or turn it off to use the default Harness retry policy.
 
-## Routing Shield (Optional)
+## Routing shield (optional)
 
-The bundle includes an optional **Gemini routing shield** component, **off by default** so direct API users incur no extra token usage.
+Routing shield is **off** by default, so direct official API requests incur zero extra token usage.
 
-When using third-party relays, expand this bundle's components in **Plugin Manager** to enable it, then choose a strength level under **Settings → Models → Gemini → Customized settings**:
+When using third-party relays, choose a strength level directly under **Settings → Models → Gemini → Customized settings → Routing shield**:
 
-- **Light** (`probe-only`): Minimal token overhead for everyday use.
-- **Balanced** (`hybrid`, default): Balanced protection and input cost.
+- **Off** (`off`, default): Leaves requests untouched.
+- **Minimal** (`minimal`): Joins the opening system-prompt sentences only; zero extra tokens and cache-friendly.
+- **Light** (`probe-only`): Low-overhead polymorphic probe protection.
+- **Balanced** (`hybrid`): Balanced protection and input cost.
 - **Strong** (`fortress`): Stronger polymorphic protection with higher input token usage.
 
-You can also configure `mode` via Cordis configuration:
+You can also configure `routingShield` in Cordis configuration:
 
 ```yaml
-- id: gemini-routing-shield
+- id: llm-gemini-native
   config:
-    mode: probe-only
+    routingShield: minimal
 ```
 
 ## License

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { toChunks } from '../gemini.js';
+import { DEFAULT_MODELS, PROVIDER, toChunks, toRequest } from '../gemini.js';
 
 const finish = { candidates: [{ content: { parts: [{ text: 'hello' }] }, finishReason: 'STOP' }] };
 const collect = async (chunks, options = { model: 'requested-alias' }) => {
@@ -49,4 +49,64 @@ test('tool-call response keeps both the model version and replay signatures', as
     { length: 1, thought: true, thoughtSignature: 'thought-sig' },
   ]);
   assert.equal(chunks.at(-1).replayState.blocks[1].metadata.thoughtSignature, 'signature');
+});
+
+test('drops unsigned empty text and thought parts during streaming and replay while preserving signed ones', async () => {
+  const toolChunks = await collect([
+    { candidates: [{ content: { parts: [{ text: '', thought: true }] } }] },
+    { candidates: [{ content: { parts: [{ functionCall: { name: 'lookup', args: { q: 'x' } }, thoughtSignature: 'call-sig' }] } }] },
+    { candidates: [{ content: { parts: [{ text: '' }] }, finishReason: 'STOP' }] },
+  ]);
+  const ended = toolChunks.filter(chunk => chunk.type === 'block-end').map(chunk => chunk.block);
+  assert.equal(ended.length, 1);
+  assert.equal(ended[0].type, 'tool-call');
+  assert.equal(toolChunks.at(-1).replayState.blocks.length, 1);
+
+  const signedTextChunks = await collect([
+    { candidates: [{ content: { parts: [{ text: 'hello' }] } }] },
+    { candidates: [{ content: { parts: [{ text: ' ' }] } }] },
+    { candidates: [{ content: { parts: [{ text: 'world' }] } }] },
+    { candidates: [{ content: { parts: [{ text: '', thoughtSignature: 'tail-sig' }] }, finishReason: 'STOP' }] },
+  ]);
+  const textBlocks = signedTextChunks.filter(chunk => chunk.type === 'block-end').map(chunk => chunk.block);
+  assert.deepEqual(textBlocks, [{ type: 'text', text: 'hello world' }]);
+  assert.deepEqual(signedTextChunks.at(-1).replayState.blocks[0].parts, [
+    { length: 11 },
+    { length: 0, thoughtSignature: 'tail-sig' },
+  ]);
+
+  const request = await toRequest({
+    provider: PROVIDER,
+    model: DEFAULT_MODELS[0].id,
+    messages: [
+      { role: 'user', content: [{ type: 'text', text: 'go' }] },
+      {
+        role: 'assistant',
+        source: { replayState: { response: { kind: 'gemini-native', version: 1 }, blocks: [
+          { nativeId: 'native-1', metadata: { thoughtSignature: 'call-sig' } },
+          { parts: [{ length: 0 }] },
+        ] } },
+        content: [
+          { type: 'tool-call', id: 'c1', name: 'lookup', arguments: '{"q":"x"}' },
+          { type: 'text', text: '' },
+        ],
+      },
+      { role: 'tool', toolCallId: 'c1', content: [{ type: 'text', text: 'ok' }] },
+      {
+        role: 'assistant',
+        source: { replayState: { response: { kind: 'gemini-native', version: 1 }, blocks: [
+          { parts: [{ length: 4 }, { length: 0, thoughtSignature: 'tail-sig' }] },
+        ] } },
+        content: [{ type: 'text', text: 'done' }],
+      },
+      { role: 'user', content: [{ type: 'text', text: 'next' }] },
+    ],
+  }, { models: DEFAULT_MODELS });
+  assert.deepEqual(request.contents[1].parts, [
+    { functionCall: { name: 'lookup', args: { q: 'x' }, id: 'native-1' }, thoughtSignature: 'call-sig' },
+  ]);
+  assert.deepEqual(request.contents[3].parts, [
+    { text: 'done' },
+    { text: '', thoughtSignature: 'tail-sig' },
+  ]);
 });

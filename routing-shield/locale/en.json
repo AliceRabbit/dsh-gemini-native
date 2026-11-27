@@ -1,6 +1,0 @@
-{
-  "meta": {
-    "title": "Gemini routing shield",
-    "description": "Helps prevent third-party relays from silently routing requests to lower-tier models. Off by default; adjust strength in Gemini settings once enabled."
-  }
-}

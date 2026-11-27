@@ -39,22 +39,24 @@ dsh plugin --profile <profile> add https://github.com/AliceRabbit/dsh-gemini-nat
 - **推理等级**：在会话中选择模型后调整。Hydrogen 和 Neon 默认 `high`，最高 `xhigh`；Carbon 和 Argon 默认 `medium`，最高 `high`；Gemini 3.5 Flash-Lite 默认 `minimal`。
 - **限流与错误重试**：默认开启（最多重试 5 次，等待 5–30 秒），可在自定义设置中调整次数与间隔，或关闭以恢复默认策略。
 
-## 防降智组件（可选）
+## 防降智（可选）
 
-插件包内置独立的 **Gemini 防降智** 组件，**默认关闭**，直连官方 API 时无需开启，不会产生额外 token 开销。
+防降智默认**关闭**，直连官方 API 时无需开启，零额外 token 开销。
 
-使用第三方中转服务时，可在 **插件管理** 中展开本插件包的组件列表单独启用它，随后在 **设置 → 模型 → Gemini → 自定义设置** 中选择强度档位：
+使用第三方中转服务时，可在 **设置 → 模型 → Gemini → 自定义设置 → 防降智** 中直接选择强度档位：
 
-- **轻量**（`probe-only`）：低附加开销，适合日常轻量请求。
-- **均衡**（`hybrid`，默认）：兼顾防护强度与输入开销。
+- **关闭**（`off`，默认）：不修改请求。
+- **极简**（`minimal`）：仅合并系统提示词首句分隔，零额外 token 开销，缓存友好。
+- **轻量**（`probe-only`）：低附加开销的多态探针防护。
+- **均衡**（`hybrid`）：兼顾防护强度与输入开销。
 - **强化**（`fortress`）：更高强度的多态特征防护，输入开销相应更高。
 
-如果你通过配置文件管理插件，也可以直接在 Cordis 配置中指定档位：
+如果你通过配置文件管理插件，也可以直接在 `llm-gemini-native` 配置中指定：
 
 ```yaml
-- id: gemini-routing-shield
+- id: llm-gemini-native
   config:
-    mode: probe-only
+    routingShield: minimal
 ```
 
 ## 许可证

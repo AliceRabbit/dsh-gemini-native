@@ -30,8 +30,8 @@ window.__ModuleLoader__.load({
         invalidRetryDelay: '等待时间需为 1–300 秒（最多 3 位小数）。',
         invalidRetryOrder: '最长等待不能小于初始等待。',
         shieldStrength: '防护强度', shieldTitle: '防降智',
-        shieldMinimal: '极简', shieldLight: '轻量', shieldBalanced: '均衡（默认）', shieldStrong: '强化',
-        shieldHelp: '强度越高，附加的上下文开销越大。保存后对后续请求生效。',
+        shieldOff: '关闭（默认）', shieldMinimal: '极简', shieldLight: '轻量', shieldBalanced: '均衡', shieldStrong: '强化',
+        shieldHelp: '直连官方 API 保持关闭即可；使用中转服务时可按需开启，保存后对后续请求生效。',
       },
       en: {
         key: 'API key', savedKey: 'Leave blank to keep saved key', newKey: 'Leave blank to use {ref}',
@@ -58,8 +58,8 @@ window.__ModuleLoader__.load({
         invalidRetryDelay: 'Delay must be 1–300 seconds (up to 3 decimal places).',
         invalidRetryOrder: 'Max delay cannot be less than initial delay.',
         shieldStrength: 'Shield strength', shieldTitle: 'Routing shield',
-        shieldMinimal: 'Minimal', shieldLight: 'Light', shieldBalanced: 'Balanced (default)', shieldStrong: 'Strong',
-        shieldHelp: 'Higher strength uses more input tokens. Saved changes apply to subsequent requests.',
+        shieldOff: 'Off (default)', shieldMinimal: 'Minimal', shieldLight: 'Light', shieldBalanced: 'Balanced', shieldStrong: 'Strong',
+        shieldHelp: 'Keep off for the official API; choose a level for third-party relays. Saved changes apply to subsequent requests.',
       },
     };
     // Settings control styles are copied from Harness 0.2.1 and scoped to this plugin.
@@ -282,6 +282,8 @@ window.__ModuleLoader__.load({
       const [modelsEdited, setModelsEdited] = React.useState(false);
       const [retry, setRetry] = React.useState(() => retryDraft());
       const [retryEdited, setRetryEdited] = React.useState(false);
+      const [shieldMode, setShieldMode] = React.useState('off');
+      const [shieldEdited, setShieldEdited] = React.useState(false);
       const retryHelpId = React.useId();
       const retryErrorId = React.useId();
       const shieldHelpId = React.useId();
@@ -290,9 +292,6 @@ window.__ModuleLoader__.load({
         return { face, subscribe: listener => face.subscribe(listener), getSnapshot: () => face.getSnapshot() };
       }, [ctx]);
       const settings = React.useSyncExternalStore(mirror.subscribe, mirror.getSnapshot);
-      const shield = !settings.error && settings.view?.namespaces.find(row => row.ns === 'gemini-routing-shield');
-      const [shieldDraft, setShieldDraft] = React.useState(null);
-      React.useEffect(() => { if (!shield) setShieldDraft(null); }, [!!shield]);
       React.useEffect(() => {
         let active = true;
         mirror.face.ensure().then(() => {
@@ -306,6 +305,7 @@ window.__ModuleLoader__.load({
           setRows(draftRows(found.value.models));
           setOverridden(Object.hasOwn(found.user, 'models'));
           setRetry(retryDraft(found.value.quotaRetry));
+          setShieldMode(found.value.routingShield ?? 'off');
         }).catch(error => { if (active) setFailure(error.message); });
         return () => { active = false; };
       }, []);
@@ -357,15 +357,6 @@ window.__ModuleLoader__.load({
         setBusy(true);
         setFailure('');
         try {
-          // The optional component owns its namespace. Recheck it at submission:
-          // an open editor must not write a draft after the component is removed.
-          const activeShield = !current.error && current.view?.namespaces.find(row => row.ns === 'gemini-routing-shield');
-          if (activeShield && shieldDraft && shieldDraft.mode !== activeShield.value.mode) {
-            const accepted = result(await ctx.remote.settings.mutate(activeShield.ns,
-              [{ op: 'set', path: ['mode'], value: shieldDraft.mode }], shieldDraft.revision));
-            mirror.face.acceptView(accepted);
-            setShieldDraft(null);
-          }
           const ops = [];
           const address = baseURL.trim();
           if (endpointEdited && address !== (view.user.baseURL ?? '')) ops.push(address ? { op: 'set', path: ['baseURL'], value: address } : { op: 'unset', path: ['baseURL'] });
@@ -378,6 +369,10 @@ window.__ModuleLoader__.load({
           const acceptedRetry = { ...retryDefaults, ...view.value.quotaRetry };
           if (retryEdited && JSON.stringify(parsedRetry.value) !== JSON.stringify(acceptedRetry)) {
             ops.push({ op: 'set', path: ['quotaRetry'], value: parsedRetry.value });
+          }
+          const acceptedShield = view.value.routingShield ?? 'off';
+          if (shieldEdited && shieldMode !== acceptedShield) {
+            ops.push({ op: 'set', path: ['routingShield'], value: shieldMode });
           }
           let committed = view;
           if (ops.length) {
@@ -411,14 +406,14 @@ window.__ModuleLoader__.load({
                 h('label', { className: 'gn-field' }, h('span', { className: 'gn-fieldLabel' }, t('endpoint')),
                   h('input', { className: 'gn-input', type: 'text', value: baseURL, placeholder: view.base.baseURL || provider.defaultBaseURL, 'aria-label': t('endpoint'), 'aria-invalid': !!endpointError, onChange: event => { setBaseURL(event.target.value); setEndpointEdited(true); } })),
                 endpointError ? h('p', { className: 'gn-error' }, endpointError) : null,
-                shield ? h('section', { className: 'gn-modelCatalog', 'aria-label': t('shieldTitle') },
+                h('section', { className: 'gn-modelCatalog', 'aria-label': t('shieldTitle') },
                   h('span', { className: 'gn-modelCatalogTitle' }, t('shieldTitle')),
                   h('label', { className: 'gn-field' }, h('span', { className: 'gn-fieldLabel' }, t('shieldStrength')),
-                    h('select', { className: 'gn-input', value: shieldDraft?.mode ?? shield.value.mode,
+                    h('select', { className: 'gn-input', value: shieldMode,
                       disabled, 'aria-label': t('shieldStrength'), 'aria-describedby': shieldHelpId,
-                      onChange: event => setShieldDraft({ mode: event.target.value, revision: shieldDraft?.revision ?? shield.revision }) },
-                      ...[['minimal', 'shieldMinimal'], ['probe-only', 'shieldLight'], ['hybrid', 'shieldBalanced'], ['fortress', 'shieldStrong']].map(([value, label]) => h('option', { key: value, value }, t(label))))),
-                  h('p', { id: shieldHelpId, className: 'gn-advancedHint' }, t('shieldHelp'))) : null,
+                      onChange: event => { setShieldMode(event.target.value); setShieldEdited(true); } },
+                      ...[['off', 'shieldOff'], ['minimal', 'shieldMinimal'], ['probe-only', 'shieldLight'], ['hybrid', 'shieldBalanced'], ['fortress', 'shieldStrong']].map(([value, label]) => h('option', { key: value, value }, t(label))))),
+                  h('p', { id: shieldHelpId, className: 'gn-advancedHint' }, t('shieldHelp'))),
                 h('section', { className: 'gn-modelCatalog', 'aria-label': t('quotaRetry') },
                   h('span', { className: 'gn-modelCatalogTitle' }, t('quotaRetry')),
                   h('label', { className: 'gn-checkbox' },

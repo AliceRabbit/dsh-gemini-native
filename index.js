@@ -3,6 +3,7 @@ import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment';
 import { LlmError } from '@deepseek-ai/dsh-llm';
 import { BASE_URL, DEFAULT_MODELS, GeminiAdapter, NAMESPACE, PROVIDER } from './gemini.js';
 import { QuotaRetrySchema, resolveQuotaRetryPolicy } from './quota-retry.js';
+import { RoutingShieldSchema } from './routing-shield.js';
 
 export const name = 'llm-gemini-native';
 export const inject = ['llm'];
@@ -24,6 +25,7 @@ export const Config = z.object({
   timeoutMs: z.number().step(1).min(1).default(900000).volatile(),
   headers: z.dict(z.string()).default({}).volatile(),
   quotaRetry: QuotaRetrySchema.volatile(),
+  routingShield: RoutingShieldSchema.volatile(),
 });
 const CONFIG_KEYS = Object.keys(Config.dict);
 
